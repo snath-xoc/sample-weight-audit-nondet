@@ -1,0 +1,1 @@
+from .test_on_representative_sample import paired_test as paired_test
