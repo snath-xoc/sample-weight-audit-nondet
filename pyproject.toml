@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sample_weight_audit"
+version = "2025.0.0"
+description = "Auditing tool for sample weight equivalence for non-deterministic estimators"
+readme = "README.md"
+maintainers = [
+  {name = "Shruti Nath", email = "shruti@probabl.ai"}
+]
+
+dependencies = [
+  "numpy>=1.19.5",
+  "scipy>=1.6.0",
+  "joblib>=1.2.0",
+  "threadpoolctl>=3.1.0",
+  "scikit-learn>=1.4,
+]
+requires-python = ">=3.9"
+
+[project.urls]
+repository = "https://github.com/snath-xoc/sample-weight-audit-nondet.git"
+download = "https://github.com/snath-xoc/sample-weight-audit-nondet.git"
+tracker = "https://github.com/snath-xoc/sample-weight-audit-nondet/issues"
