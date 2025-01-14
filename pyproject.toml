@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sample_weight_audit"
-version = "2025.0.0"
+version = "2025.1.0"
 description = "Auditing tool for sample weight equivalence for non-deterministic estimators"
 readme = "README.md"
 maintainers = [{name = "Shruti Nath", email = "shruti@probabl.ai"}]
