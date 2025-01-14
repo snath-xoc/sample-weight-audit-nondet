@@ -13,5 +13,5 @@ requires-python = ">=3.9"
 
 [project.urls]
 repository = "https://github.com/snath-xoc/sample-weight-audit-nondet.git"
-download = "https://github.com/snath-xoc/sample-weight-audit-nondet.git"
+download = "https://test.pypi.org/project/sample-weight-audit/2025.0.0/"
 tracker = "https://github.com/snath-xoc/sample-weight-audit-nondet/issues"
