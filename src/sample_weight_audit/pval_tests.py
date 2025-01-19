@@ -4,7 +4,7 @@ from scipy.spatial.distance import cdist
 
 
 def kruskal_pval(x, y, verbose=False, **kwargs):
-    test_results = kruskal(*(x - y).T)
+    test_results = kruskal(*(x.flatten() - y.flatten()).T)
     if verbose:
         print(f"kruskal diff p-value: {test_results.pvalue:.4f}")
     return test_results
@@ -39,7 +39,7 @@ def ed_perm_test(x, y, n_perm=100, random_seed=None, verbose=False, **kwargs):
         rng.shuffle(z)
         ed_perm[i] = energy_distance(z[:n], z[n:])
 
-    test_results.statistic = [ed_perm[i], ed_obs]
+    test_results.statistic = [ed_perm, ed_obs]
     test_results.pvalue = (ed_perm >= ed_obs).mean()
     if verbose:
         print(f"ed perm p-value: {test_results.pvalue:.3f}")
@@ -61,9 +61,7 @@ def get_pval(pred_ref, pred, test="kstest", **kwargs):
         test_result = mannwhitneyu(pred, pred_ref)
 
     elif test == "ed_perm":
-        test_result = ed_perm_test(
-            pred.reshape(1, -1), pred_ref.reshape(1, -1), **kwargs
-        )
+        test_result = ed_perm_test(pred, pred_ref, **kwargs)
 
     elif test == "kruskal":
         test_result = kruskal_pval(pred, pred_ref, **kwargs)
@@ -82,7 +80,7 @@ def scan_for_pvalue(preds, preds_ref, **kwargs):
         ## test defaults to Kolmogorov-smirnov
         test = "kstest"
 
-    if len(preds.shape) > 1 and test != "kruskal":
+    if len(preds.shape) > 1 and test not in ["kruskal", "ed_perm"]:
         test_results = []
         pvals = []
         for pred, pred_ref in zip(preds.T, preds_ref.T):
@@ -93,9 +91,7 @@ def scan_for_pvalue(preds, preds_ref, **kwargs):
         preds_ref_plot = preds_ref[:, min_p_val_idx]
         preds_plot = preds[:, min_p_val_idx]
     else:
-        test_results = get_pval(
-            preds_ref.flatten(), preds.flatten(), test=test, **kwargs
-        )
+        test_results = get_pval(preds_ref, preds, test=test, **kwargs)
         preds_ref_plot = preds_ref
         preds_plot = preds
     return test_results, preds_plot, preds_ref_plot
