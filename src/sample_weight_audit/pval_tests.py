@@ -83,7 +83,7 @@ def scan_for_pvalue(preds, preds_ref, **kwargs):
     if len(preds.shape) > 1 and test != "kruskal":
         test_results = []
         pvals = []
-        for pred, pred_ref in (preds.T, preds_ref.T):
+        for pred, pred_ref in zip(preds.T, preds_ref.T):
             test_results.append(get_pval(pred_ref, pred, test=test, **kwargs))
             pvals.append(test_results[-1].pvalue)
         min_p_val_idx = np.argmin(np.asarray(pvals))
