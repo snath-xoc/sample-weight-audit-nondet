@@ -222,7 +222,7 @@ def multifit_over_weighted_and_repeated(
         )
 
     est_init = est(random_state=0, **extra_params)
-    print(X_train.shape, sample_weight.shape)
+
     est_init.fit(X_train, y_train, sample_weight=sample_weight)
 
     predictions_init = get_initial_predictions(
