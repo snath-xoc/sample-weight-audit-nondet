@@ -57,9 +57,9 @@ def get_initial_predictions(est, est_init, X_test, n_classes=None):
         ## TO DO: classes from make_classifications are not ordinal so should return
         # £ predicted probabilitied
         if hasattr(est_init, "predict_proba"):
-            predictions_init = est_init.predict_proba(X_test) @ np.arange(n_classes)
+            predictions_init = est_init.predict_proba(X_test)
         else:
-            predictions_init = est_init.decision_function(X_test) @ np.arange(n_classes)
+            predictions_init = est_init.decision_function(X_test)
 
     else:
         predictions_init = X_test
@@ -122,22 +122,14 @@ def get_classifier_results(
     ## Need to change to handle all predicted probability
     ## across n_classes
     if hasattr(est_weighted, "predict_proba"):
-        predictions_weighted = est_weighted.predict_proba(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_weighted = est_weighted.predict_proba(X_test_representative)
 
-        predictions_repeated = est_repeated.predict_proba(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_repeated = est_repeated.predict_proba(X_test_representative)
 
     else:
-        predictions_weighted = est_weighted.decision_function(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_weighted = est_weighted.decision_function(X_test_representative)
 
-        predictions_repeated = est_repeated.decision_function(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_repeated = est_repeated.decision_function(X_test_representative)
 
     return predictions_weighted, predictions_repeated
 
