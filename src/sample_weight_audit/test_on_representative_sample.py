@@ -70,17 +70,22 @@ def paired_test(
 
     p_vals = []
     test_statistic = []
+    predictions_weighted_plot = []
+    predictions_repeated_plot = []
 
     for pred, pred_ref in zip(
         np.swapaxes(predictions_weighted, 0, 1), np.swapaxes(predictions_repeated, 0, 1)
     ):
 
-        test_result, predictions_weighted_plot, predictions_repeated_plot = (
+        test_result, predictions_weighted_plot_temp, predictions_repeated_plot_temp = (
             scan_for_pvalue(pred, pred_ref, **kwargs)
         )
         p_vals.append(test_result.pvalue)
         test_statistic.append(test_result.statistic)
-
+        predictions_weighted_plot.append(predictions_weighted_plot_temp)
+        predictions_repeated_plot.append(predictions_repeated_plot_temp)
+    predictions_repeated_plot = np.stack(predictions_repeated_plot)
+    predictions_weighted_plot = np.stack(predictions_weighted_plot)
     if plot:
         fig, axs = plt.subplots(
             2, int(predictions_weighted_plot.shape[1] / 2), figsize=(12, 6)
