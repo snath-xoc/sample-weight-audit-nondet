@@ -147,25 +147,17 @@ def get_transformer_results(est, est_weighted, est_repeated, X_test_representati
     ## TO DO: currently output is flattened but should be changed to
     ## handle all the output dimensions individually
     if est.__name__ == "KBinsDiscretizer":
-        predictions_weighted = np.stack(est_weighted.bin_edges_).flatten()
-        predictions_repeated = np.stack(est_repeated.bin_edges_).flatten()
+        predictions_weighted = np.stack(est_weighted.bin_edges_)
+        predictions_repeated = np.stack(est_repeated.bin_edges_)
     elif est.__name__ == "RandomTreesEmbedding":
-        predictions_weighted = np.stack(
-            est_weighted.apply(X_test_representative).mean(axis=1)
-        )
+        predictions_weighted = est_weighted.transform(X_test_representative)
 
-        predictions_repeated = np.stack(
-            est_repeated.apply(X_test_representative).mean(axis=1)
-        )
+        predictions_repeated = est_repeated.transform(X_test_representative)
 
     else:
-        predictions_weighted = np.asarray(
-            est_weighted.transform(X_test_representative)
-        ).flatten()
+        predictions_weighted = np.asarray(est_weighted.transform(X_test_representative))
 
-        predictions_repeated = np.asarray(
-            est_repeated.transform(X_test_representative)
-        ).flatten()
+        predictions_repeated = np.asarray(est_repeated.transform(X_test_representative))
 
     return predictions_weighted, predictions_repeated
 
@@ -230,6 +222,7 @@ def multifit_over_weighted_and_repeated(
         )
 
     est_init = est(random_state=0, **extra_params)
+    print(X_train.shape, sample_weight.shape)
     est_init.fit(X_train, y_train, sample_weight=sample_weight)
 
     predictions_init = get_initial_predictions(
