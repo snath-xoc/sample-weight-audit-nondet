@@ -6,6 +6,13 @@ from sklearn.model_selection import train_test_split
 
 rng = np.random.RandomState(1000)
 
+__all__ = [
+    "add_faulty_data",
+    "get_diverse_subset",
+    "get_weighted_and_repeated_train_test",
+    "get_estimator_dataset",
+]
+
 
 def add_faulty_data(X, y):
     # Add some faulty data
@@ -91,7 +98,7 @@ def get_estimator_dataset(
         )
 
     else:
-        centres = np.array([[0, 0], [0, 5], [3, 1], [2, 4], [100, 8]])
+        centres = np.array([[0, 0, 0], [0, 5, 5], [3, 1, 1], [2, 4, 4], [100, 8, 800]])
         X, _ = make_blobs(
             n_samples=n_samples_per_cv_group * n_cv_group,
             cluster_std=0.5,

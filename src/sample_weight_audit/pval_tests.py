@@ -85,9 +85,10 @@ def scan_for_pvalue(
 
         if preds.shape[0] * preds.shape[1] != sample_mult_dim:
             n_components = int(sample_mult_dim // preds.shape[0])
+            print(preds.shape)
             if projection_type == "PCA":
-                preds = PCA.fit_transform(preds, n_components=n_components)
-                preds_ref = PCA.fit_transform(preds_ref, n_components=n_components)
+                preds = PCA(n_components=n_components).fit_transform(preds)
+                preds_ref = PCA(n_components=n_components).fit_transform(preds_ref)
             elif projection_type == "GaussianRandomProjection":
                 components = (
                     GaussianRandomProjection(n_components=n_components)

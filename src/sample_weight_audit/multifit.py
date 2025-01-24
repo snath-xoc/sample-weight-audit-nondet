@@ -199,6 +199,12 @@ def multifit_over_weighted_and_repeated(
     calibrated=False,
     **kwargs,
 ):
+    extra_params, extra_params_rep = get_extra_params(est)
+    if "ignore_sample_weight" in kwargs.keys():
+        print(kwargs["ignore_sample_weight"])
+        extra_params["ignore_sample_weight"] = kwargs.pop("ignore_sample_weight")
+        extra_params_rep["ignore_sample_weight"] = extra_params["ignore_sample_weight"]
+
     (
         X_train,
         y_train,
@@ -210,8 +216,6 @@ def multifit_over_weighted_and_repeated(
     ) = get_weighted_and_repeated_train_test(
         X, y, train_size=train_size * n_cv_group, **kwargs
     )
-
-    extra_params, extra_params_rep = get_extra_params(est)
 
     if "cv" in signature(est).parameters:
         extra_params, extra_params_rep = get_cv_split(
