@@ -2,15 +2,15 @@ import time
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import kstest, mannwhitneyu, ttest_ind
 from scipy.sparse import csr_array
 
 
 from .generate_weighted_and_repeated_data import get_estimator_dataset
 from .multifit import multifit_over_weighted_and_repeated
+from .pval_tests import scan_for_pvalue
 
 
-def paired_test(
+def weighted_repeated_fit_equivalence_test(
     est,
     test="kstest",
     threshold=0.05,
@@ -28,7 +28,9 @@ def paired_test(
     **kwargs,
 ):
     """
-    Note I assume predictions and predictions_ref are np.ndarray(predictions, samples)
+    Note I assume predictions and predictions_ref are np.ndarray(predictions, samples, output_dimensions).
+    The test supports n-dimensional predictions and returns a single p-value by scanning through output_dimensions
+    and returning the minimum p-value. Note that we try and keep the samples*output_dimensions as equal to
     """
 
     start_time = time.time()
@@ -51,6 +53,7 @@ def paired_test(
         max_repeats=max_repeats,
         n_classes=n_classes,
     )
+
     # print(X.shape, y.shape)
     diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
 
@@ -67,43 +70,50 @@ def paired_test(
             f"repeatedly fitting {est} with different random state led to the same predictions"
         )
 
+    p_vals = []
+    test_statistic = []
+
+    predictions_weighted_plot = []
+    predictions_repeated_plot = []
+
+    for pred, pred_ref in zip(
+        np.swapaxes(predictions_weighted, 0, 1), np.swapaxes(predictions_repeated, 0, 1)
+    ):
+
+        test_result, predictions_weighted_plot_temp, predictions_repeated_plot_temp = (
+            scan_for_pvalue(pred, pred_ref, **kwargs)
+        )
+        p_vals.append(test_result.pvalue)
+        test_statistic.append(test_result.statistic)
+        
+        predictions_weighted_plot.append(predictions_weighted_plot_temp)
+        predictions_repeated_plot.append(predictions_repeated_plot_temp)
+    predictions_repeated_plot = np.stack(predictions_repeated_plot)
+    predictions_weighted_plot = np.stack(predictions_weighted_plot)
+
     if plot:
         fig, axs = plt.subplots(
-            2, int(predictions_weighted.shape[1] / 2), figsize=(12, 6)
+            2, int(predictions_weighted_plot.shape[1] / 2), figsize=(12, 6)
         )
         i = 0
         for ax in axs.flatten():
-            ax.hist(predictions_repeated[:, i], label="repeated", bins=10, density=True)
             ax.hist(
-                predictions_weighted[:, i],
+                predictions_repeated_plot[:, i], label="repeated", bins=10, density=True
+            )
+            ax.hist(
+                predictions_weighted_plot[:, i],
                 alpha=0.7,
                 label="weighted",
                 bins=10,
                 density=True,
             )
-            if i == (predictions_weighted.shape[1] - 1):
+            if i == (predictions_weighted_plot.shape[1] - 1):
                 plt.legend()
             i += 1
 
         plt.show()
     if correct_threshold:
         threshold /= predictions_repeated.shape[1]
-
-    p_vals = []
-    test_statistic = []
-
-    for pred, pred_ref in zip(predictions_weighted.T, predictions_repeated.T):
-        if test == "kstest":
-            test_result = kstest(pred, pred_ref, **kwargs)
-        elif test == "welch":
-            test_result = ttest_ind(
-                pred, pred_ref, **kwargs
-            )  # hard code equal_var = False
-        elif test == "mannwhitneyu":
-            test_result = mannwhitneyu(pred, pred_ref, **kwargs)
-
-        p_vals.append(test_result.pvalue)
-        test_statistic.append(test_result.statistic)
 
     print(
         "Finished looping till the maximum random state,",
