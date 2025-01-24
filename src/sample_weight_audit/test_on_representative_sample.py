@@ -42,6 +42,10 @@ def weighted_repeated_fit_equivalence_test(
     if issparse:
         X = csr_array(X)
 
+    multifit_kwargs = {}
+    if "ignore_sample_weight" in kwargs.keys():
+        multifit_kwargs["ignore_sample_weight"] = kwargs.pop("ignore_sample_weight")
+
     predictions_weighted, predictions_repeated, _ = multifit_over_weighted_and_repeated(
         est,
         X,
@@ -52,6 +56,7 @@ def weighted_repeated_fit_equivalence_test(
         n_cv_group=n_cv_group,
         max_repeats=max_repeats,
         n_classes=n_classes,
+        **multifit_kwargs,
     )
 
     # print(X.shape, y.shape)
@@ -85,7 +90,7 @@ def weighted_repeated_fit_equivalence_test(
         )
         p_vals.append(test_result.pvalue)
         test_statistic.append(test_result.statistic)
-        
+
         predictions_weighted_plot.append(predictions_weighted_plot_temp)
         predictions_repeated_plot.append(predictions_repeated_plot_temp)
     predictions_repeated_plot = np.stack(predictions_repeated_plot)
