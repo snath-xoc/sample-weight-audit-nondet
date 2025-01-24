@@ -5,6 +5,7 @@ from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from sklearn.random_projection import GaussianRandomProjection
 
+
 def kruskal_pval(x, y, verbose=False, **kwargs):
     test_results = kruskal(*(x.flatten() - y.flatten()).T)
     if verbose:
@@ -72,7 +73,7 @@ def get_pval(pred_ref, pred, test="kstest", **kwargs):
 
 
 def scan_for_pvalue(
-    preds, preds_ref, test="kstest", sample_mult_dim=60, projection_type="PCA", **kwargs
+    preds, preds_ref, test="kstest", sample_mult_dim=30, projection_type="PCA", **kwargs
 ):
     """
     Function to scan over output dimensions with minimum pvalue
