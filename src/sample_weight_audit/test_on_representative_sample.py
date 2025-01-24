@@ -10,7 +10,7 @@ from .multifit import multifit_over_weighted_and_repeated
 from .pval_tests import scan_for_pvalue
 
 
-def paired_test(
+def weighted_repeated_fit_equivalence_test(
     est,
     test="kstest",
     threshold=0.05,
@@ -28,7 +28,9 @@ def paired_test(
     **kwargs,
 ):
     """
-    Note I assume predictions and predictions_ref are np.ndarray(predictions, samples)
+    Note I assume predictions and predictions_ref are np.ndarray(predictions, samples, output_dimensions).
+    The test supports n-dimensional predictions and returns a single p-value by scanning through output_dimensions
+    and returning the minimum p-value. Note that we try and keep the samples*output_dimensions as equal to
     """
 
     start_time = time.time()
