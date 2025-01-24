@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import kruskal, kstest, mannwhitneyu, ttest_ind
 from scipy.spatial.distance import cdist
+
 from sklearn.decomposition import PCA
 from sklearn.random_projection import GaussianRandomProjection
 
@@ -43,6 +44,7 @@ def ed_perm_test(x, y, n_perm=100, random_seed=None, verbose=False, **kwargs):
 
     test_results.statistic = [ed_perm, ed_obs]
     test_results.pvalue = ((ed_perm >= ed_obs).sum() + 1) / (n_perm + 1)
+
     if verbose:
         print(f"ed perm p-value: {test_results.pvalue:.3f}")
     return test_results
