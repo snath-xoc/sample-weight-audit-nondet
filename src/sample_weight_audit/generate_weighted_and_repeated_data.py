@@ -17,7 +17,7 @@ def add_faulty_data(X, y):
     return y, inlier_mask
 
 
-def get_representative_sample(X_test, predictions, rep_test_size=10):
+def get_diverse_subset(X_test, predictions, rep_test_size=10):
     if isinstance(predictions, csr_matrix) or isinstance(predictions, csr_array):
         predictions = predictions.toarray()
     if predictions.ndim == 2:
