@@ -5,7 +5,6 @@ from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from sklearn.random_projection import GaussianRandomProjection
 
-
 def kruskal_pval(x, y, verbose=False, **kwargs):
     test_results = kruskal(*(x.flatten() - y.flatten()).T)
     if verbose:
@@ -43,6 +42,7 @@ def ed_perm_test(x, y, n_perm=100, random_seed=None, verbose=False, **kwargs):
         ed_perm[i] = energy_distance(z[:n], z[n:])
 
     test_results.statistic = [ed_perm, ed_obs]
+
     test_results.pvalue = ((ed_perm >= ed_obs).sum() + 1) / (n_perm + 1)
 
     if verbose:
@@ -66,7 +66,6 @@ def get_pval(pred_ref, pred, test="kstest", **kwargs):
 
     elif test == "ed_perm":
         test_result = ed_perm_test(pred, pred_ref, **kwargs)
-
     else:
         print(f"{test} not implemented yet!")
     return test_result
