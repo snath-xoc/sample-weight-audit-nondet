@@ -201,7 +201,6 @@ def multifit_over_weighted_and_repeated(
 ):
     extra_params, extra_params_rep = get_extra_params(est)
     if "ignore_sample_weight" in kwargs.keys():
-        print(kwargs["ignore_sample_weight"])
         extra_params["ignore_sample_weight"] = kwargs.pop("ignore_sample_weight")
         extra_params_rep["ignore_sample_weight"] = extra_params["ignore_sample_weight"]
 
