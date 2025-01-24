@@ -145,14 +145,14 @@ def get_transformer_results(est, est_weighted, est_repeated, X_test_diverse_subs
         predictions_weighted = np.stack(est_weighted.bin_edges_)
         predictions_repeated = np.stack(est_repeated.bin_edges_)
     elif est.__name__ == "RandomTreesEmbedding":
-        predictions_weighted = est_weighted.transform(X_test_representative)
+        predictions_weighted = est_weighted.transform(X_test_diverse_subset)
 
-        predictions_repeated = est_repeated.transform(X_test_representative)
+        predictions_repeated = est_repeated.transform(X_test_diverse_subset)
 
     else:
-        predictions_weighted = np.asarray(est_weighted.transform(X_test_representative))
+        predictions_weighted = np.asarray(est_weighted.transform(X_test_diverse_subset))
 
-        predictions_repeated = np.asarray(est_repeated.transform(X_test_representative))
+        predictions_repeated = np.asarray(est_repeated.transform(X_test_diverse_subset))
 
     if isinstance(predictions_weighted, csr_matrix) or isinstance(
         predictions_weighted, csr_array
