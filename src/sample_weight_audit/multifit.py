@@ -2,13 +2,14 @@ from inspect import signature
 import numpy as np
 from tqdm import tqdm
 
+from scipy.sparse import csr_matrix, csr_array
 from sklearn.base import is_regressor, is_classifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import LeaveOneGroupOut
 
 from .generate_weighted_and_repeated_data import (
     get_weighted_and_repeated_train_test,
-    get_representative_sample,
+    get_diverse_subset,
 )
 from .est_non_deterministic_config import get_config
 
@@ -57,9 +58,9 @@ def get_initial_predictions(est, est_init, X_test, n_classes=None):
         ## TO DO: classes from make_classifications are not ordinal so should return
         # £ predicted probabilitied
         if hasattr(est_init, "predict_proba"):
-            predictions_init = est_init.predict_proba(X_test) @ np.arange(n_classes)
+            predictions_init = est_init.predict_proba(X_test)
         else:
-            predictions_init = est_init.decision_function(X_test) @ np.arange(n_classes)
+            predictions_init = est_init.decision_function(X_test)
 
     else:
         predictions_init = X_test
@@ -108,41 +109,35 @@ def get_est_weighted_and_repeated(
     return est_weighted, est_repeated
 
 
-def get_regression_results(est_weighted, est_repeated, X_test_representative):
+def get_regression_results(est_weighted, est_repeated, X_test_diverse_subset):
 
-    return est_weighted.predict(X_test_representative), est_repeated.predict(
-        X_test_representative
+    return est_weighted.predict(X_test_diverse_subset), est_repeated.predict(
+        X_test_diverse_subset
     )
 
 
 def get_classifier_results(
-    est_weighted, est_repeated, X_test_representative, n_classes
+    est_weighted, est_repeated, X_test_diverse_subset, n_classes
 ):
     ## TO DO: n_classes not ordinal from make_classification
     ## Need to change to handle all predicted probability
     ## across n_classes
     if hasattr(est_weighted, "predict_proba"):
-        predictions_weighted = est_weighted.predict_proba(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        ## We throw away first output dimension of predict proba since it doesn't
+        ## mean anything
+        predictions_weighted = est_weighted.predict_proba(X_test_diverse_subset)[:, :-1]
 
-        predictions_repeated = est_repeated.predict_proba(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_repeated = est_repeated.predict_proba(X_test_diverse_subset)[:, :-1]
 
     else:
-        predictions_weighted = est_weighted.decision_function(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_weighted = est_weighted.decision_function(X_test_diverse_subset)
 
-        predictions_repeated = est_repeated.decision_function(
-            X_test_representative
-        ) @ np.arange(n_classes)
+        predictions_repeated = est_repeated.decision_function(X_test_diverse_subset)
 
     return predictions_weighted, predictions_repeated
 
 
-def get_transformer_results(est, est_weighted, est_repeated, X_test_representative):
+def get_transformer_results(est, est_weighted, est_repeated, X_test_diverse_subset):
 
     ## TO DO: currently output is flattened but should be changed to
     ## handle all the output dimensions individually
@@ -151,42 +146,51 @@ def get_transformer_results(est, est_weighted, est_repeated, X_test_representati
         predictions_repeated = np.stack(est_repeated.bin_edges_).flatten()
     elif est.__name__ == "RandomTreesEmbedding":
         predictions_weighted = np.stack(
-            est_weighted.apply(X_test_representative).mean(axis=1)
+            est_weighted.transform(X_test_diverse_subset).mean(axis=1)
         )
 
         predictions_repeated = np.stack(
-            est_repeated.apply(X_test_representative).mean(axis=1)
+            est_repeated.apply(X_test_diverse_subset).mean(axis=1)
         )
 
     else:
         predictions_weighted = np.asarray(
-            est_weighted.transform(X_test_representative)
+            est_weighted.transform(X_test_diverse_subset)
         ).flatten()
 
         predictions_repeated = np.asarray(
-            est_repeated.transform(X_test_representative)
+            est_repeated.transform(X_test_diverse_subset)
         ).flatten()
+
+    if isinstance(predictions_weighted, csr_matrix) or isinstance(
+        predictions_weighted, csr_array
+    ):
+        predictions_weighted = predictions_weighted.toarray()
+    if isinstance(predictions_repeated, csr_matrix) or isinstance(
+        predictions_repeated, csr_array
+    ):
+        predictions_repeated = predictions_repeated.toarray()
 
     return predictions_weighted, predictions_repeated
 
 
 def get_predictions(
-    est, est_weighted, est_repeated, X_test_representative, n_classes=None
+    est, est_weighted, est_repeated, X_test_diverse_subset, n_classes=None
 ):
     if is_regressor(est()):
         predictions_weighted, predictions_repeated = get_regression_results(
-            est_weighted, est_repeated, X_test_representative
+            est_weighted, est_repeated, X_test_diverse_subset
         )
 
     elif is_classifier(est()):
 
         predictions_weighted, predictions_repeated = get_classifier_results(
-            est_weighted, est_repeated, X_test_representative, n_classes
+            est_weighted, est_repeated, X_test_diverse_subset, n_classes
         )
 
     else:
         predictions_weighted, predictions_repeated = get_transformer_results(
-            est, est_weighted, est_repeated, X_test_representative
+            est, est_weighted, est_repeated, X_test_diverse_subset
         )
     return predictions_weighted, predictions_repeated
 
@@ -236,7 +240,7 @@ def multifit_over_weighted_and_repeated(
         est, est_init, X_test, n_classes=n_classes
     )
 
-    X_test_representative = get_representative_sample(
+    X_test_diverse_subset = get_diverse_subset(
         X_test, predictions_init, rep_test_size=rep_test_size
     )
     predictions_weighted_all = []
@@ -258,7 +262,7 @@ def multifit_over_weighted_and_repeated(
         )
 
         predictions_weighted, predictions_repeated = get_predictions(
-            est, est_weighted, est_repeated, X_test_representative, n_classes=n_classes
+            est, est_weighted, est_repeated, X_test_diverse_subset, n_classes=n_classes
         )
         predictions_weighted_all.append(predictions_weighted)
         predictions_repeated_all.append(predictions_repeated)
@@ -266,4 +270,4 @@ def multifit_over_weighted_and_repeated(
     predictions_weighted_all = np.stack(predictions_weighted_all)
     predictions_repeated_all = np.stack(predictions_repeated_all)
 
-    return predictions_weighted_all, predictions_repeated_all, X_test_representative
+    return predictions_weighted_all, predictions_repeated_all, X_test_diverse_subset

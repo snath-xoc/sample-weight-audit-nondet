@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from .generate_weighted_and_repeated_data import (
     add_faulty_data,
     get_weighted_and_repeated_train_test,
-    get_representative_sample,
+    get_diverse_subset,
 )
 from .multifit import multifit_over_weighted_and_repeated
 from .est_non_deterministic_config import get_config
@@ -56,7 +56,7 @@ def test_cv_deterministic(
     est_init.fit(X_train, y_train, sample_weight=sample_weight)
     predictions_init = est_init.predict(X_test)
 
-    X_test_representative = get_representative_sample(
+    X_test_diverse_subset = get_diverse_subset(
         X_test, predictions_init, rep_test_size=rep_test_size
     )
 
@@ -90,8 +90,8 @@ def test_cv_deterministic(
         est_weighted.fit(X_train, y_train, sample_weight=sample_weight)
         est_repeated.fit(X_resampled_by_weights, y_resampled_by_weights)
 
-        predictions_weighted.append(est_weighted.predict(X_test_representative))
-        predictions_repeated.append(est_repeated.predict(X_test_representative))
+        predictions_weighted.append(est_weighted.predict(X_test_diverse_subset))
+        predictions_repeated.append(est_repeated.predict(X_test_diverse_subset))
 
     return np.stack(predictions_weighted), np.stack(predictions_repeated)
 
@@ -127,7 +127,7 @@ def classifier_as_good_as_random(
             n_classes=8,
         )
     print("Fitting models")
-    predictions_repeated, predictions_weighted, X_test_representative = (
+    predictions_repeated, predictions_weighted, X_test_diverse_subset = (
         multifit_over_weighted_and_repeated(
             est,
             X,
@@ -139,18 +139,18 @@ def classifier_as_good_as_random(
         )
     )
 
-    assert X_test_representative.shape[0] == predictions_repeated.shape[1]
-    assert X_test_representative.shape[0] == predictions_weighted.shape[1]
+    assert X_test_diverse_subset.shape[0] == predictions_repeated.shape[1]
+    assert X_test_diverse_subset.shape[0] == predictions_weighted.shape[1]
 
     assert predictions_repeated.shape[0] == predictions_weighted.shape[0] == max_seed
 
-    X_test_representative_tiled = np.tile(X_test_representative, [max_seed, 1])
+    X_test_diverse_subset_tiled = np.tile(X_test_diverse_subset, [max_seed, 1])
 
     X_clf_repeated = np.hstack(
-        (X_test_representative_tiled, predictions_repeated.reshape(-1, 1))
+        (X_test_diverse_subset_tiled, predictions_repeated.reshape(-1, 1))
     )
     X_clf_weighted = np.hstack(
-        (X_test_representative_tiled, predictions_weighted.reshape(-1, 1))
+        (X_test_diverse_subset_tiled, predictions_weighted.reshape(-1, 1))
     )
     X_clf = np.vstack((X_clf_repeated, X_clf_weighted))
     y_clf = np.append(
