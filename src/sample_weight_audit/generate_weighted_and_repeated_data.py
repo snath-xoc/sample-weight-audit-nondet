@@ -79,7 +79,7 @@ def get_weighted_and_repeated_train_test(X, y, train_size=500, max_repeats=10):
 def get_estimator_dataset(
     est, n_samples_per_cv_group, n_cv_group, n_features, n_classes=None
 ):
-    if is_regressor(est()):
+    if is_regressor(est):
         X, y = make_regression(
             n_samples=n_samples_per_cv_group * n_cv_group,
             n_features=n_features,
@@ -88,7 +88,7 @@ def get_estimator_dataset(
         )
         y, inlier_mask = add_faulty_data(X, y)
 
-    elif is_classifier(est()):
+    elif is_classifier(est):
         X, y = make_classification(
             n_samples=n_samples_per_cv_group * n_cv_group,
             n_features=n_features,

@@ -21,7 +21,6 @@ from sample_weight_audit import weighted_repeated_fit_equivalence_test
 
 
 class NoisyClassifier(ClassifierMixin, BaseEstimator):
-
     def __init__(
         self,
         classifier=None,
@@ -52,7 +51,10 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
         y_proba /= self.temperature
         y_proba /= y_proba.sum(axis=1, keepdims=True)
         noisy_y = np.concatenate(
-            [multinomial.rvs(n=1, p=p, size=1, random_state=rng) for p in y_proba]
+            [
+                multinomial.rvs(n=1, p=p, size=1, random_state=rng).argmax(axis=1)
+                for p in y_proba
+            ]
         )
         self._noisy_clf = clone(classifier).fit(X, noisy_y, sample_weight=sample_weight)
         return self
@@ -62,7 +64,6 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
 
 
 class NoisyTransformer(TransformerMixin, BaseEstimator):
-
     def __init__(
         self,
         transformer=None,
@@ -95,7 +96,6 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
 
 
 class NoisyRegressor(RegressorMixin, BaseEstimator):
-
     def __init__(
         self,
         regressor=None,
@@ -103,7 +103,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         ignore_sample_weight=False,
         random_state=None,
     ):
-        self.transformer = regressor
+        self.regressor = regressor
         self.random_state = random_state
         self.noise_scale = noise_scale
         self.ignore_sample_weight = ignore_sample_weight
@@ -112,7 +112,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         if self.ignore_sample_weight:
             sample_weight = None
 
-        if self.transformer is None:
+        if self.regressor is None:
             regressor = Ridge()
         else:
             regressor = clone(self.regressor)
@@ -126,13 +126,16 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         return self._base_regressor.predict(X) + random_offsets
 
 
-@pytest.mark.parameterize("est", [NoisyClassifier, NoisyRegressor, NoisyTransformer])
+
 @pytest.mark.parametrize("ignore_sample_weight", [False, True])
 @pytest.mark.parametrize("test", ["welch", "kstest", "ed_perm", "mannwhitneyu"])
-def test_all(est_init, ignore_sample_weight, test):
-
-    est = est_init
-    if is_regressor(est_init()):
+@pytest.mark.parametrize(
+    "est", [NoisyClassifier(), NoisyRegressor(), NoisyTransformer()],
+    ids=["classifier", "regressor", "transformer"],
+)
+def test_equivalence_on_noisy_estimator(est, test, ignore_sample_weight):
+    est = est
+    if is_regressor(est):
         max_seed = 30
     else:
         max_seed = 10

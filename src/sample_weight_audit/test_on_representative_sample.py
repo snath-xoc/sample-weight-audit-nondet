@@ -86,7 +86,7 @@ def weighted_repeated_fit_equivalence_test(
     ):
 
         test_result, predictions_weighted_plot_temp, predictions_repeated_plot_temp = (
-            scan_for_pvalue(pred, pred_ref, **kwargs)
+            scan_for_pvalue(pred, pred_ref, test=test, **kwargs)
         )
         p_vals.append(test_result.pvalue)
         test_statistic.append(test_result.statistic)
@@ -131,9 +131,10 @@ def weighted_repeated_fit_equivalence_test(
     )
     print("Minimum p-values: ", np.array(p_vals).min())
 
+    p_vals =  np.asarray(p_vals)
     return {
-        "Name": est.__name__,
+        "name": est.__class__.__name__,
         "p_values": p_vals,
-        "min_p_value": np.array(p_vals).min(),
+        "min_p_value": p_vals.min(),
         "avg_p_value": np.nanmean(p_vals),
     }

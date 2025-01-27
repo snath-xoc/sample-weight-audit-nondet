@@ -1,9 +1,11 @@
 from inspect import signature
 import numpy as np
+from sklearn.ensemble import RandomTreesEmbedding
+from sklearn.preprocessing import KBinsDiscretizer
 from tqdm import tqdm
 
 from scipy.sparse import csr_matrix, csr_array
-from sklearn.base import is_regressor, is_classifier
+from sklearn.base import clone, is_regressor, is_classifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import LeaveOneGroupOut
 
@@ -18,7 +20,8 @@ NON_DEFAULT_PARAMS = get_config()
 
 
 def get_extra_params(est):
-    est_name = est.__module__ + "." + est.__name__
+    est_class = est.__class__
+    est_name = est_class.__module__ + "." + est_class.__name__
     extra_params = NON_DEFAULT_PARAMS.get(est_name, {})
     extra_params_rep = extra_params.copy()
 
@@ -35,7 +38,6 @@ def get_cv_split(
     X_resampled_by_weights,
     sample_weight,
 ):
-
     groups_weighted = np.hstack(([np.full(train_size, i) for i in range(n_cv_group)]))
     splits_weighted = list(LeaveOneGroupOut().split(X_train, groups=groups_weighted))
 
@@ -51,21 +53,23 @@ def get_cv_split(
 
 
 def get_initial_predictions(est, est_init, X_test, n_classes=None):
-
-    if is_regressor(est()):
-        predictions_init = est_init.predict(X_test)
-    elif is_classifier(est()):
-        ## TO DO: classes from make_classifications are not ordinal so should return
-        # £ predicted probabilitied
+    if is_regressor(est):
+        return est_init.predict(X_test)
+    elif is_classifier(est):
         if hasattr(est_init, "predict_proba"):
-            predictions_init = est_init.predict_proba(X_test)
+            # TODO: when predicting probabilities, the last column is redundant
+            # because of sum-to-one constraint and could therefore be
+            # discarded. But this is not the case when using decision_function.
+            # We should probably trim it here instead of doing this later.
+            return est_init.predict_proba(X_test)
         else:
-            predictions_init = est_init.decision_function(X_test)
+            return est_init.decision_function(X_test)
+
+    elif hasattr(est_init, "transform"):
+        return est_init.transform(X_test)
 
     else:
-        predictions_init = X_test
-
-    return predictions_init
+        raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
 def get_est_weighted_and_repeated(
@@ -80,37 +84,36 @@ def get_est_weighted_and_repeated(
     sample_weight,
     calibrated=False,
 ):
-    if "probability" in signature(est).parameters and calibrated:
+    # TODO: remove the SVM specific wrapper and instead, let's report SVC
+    # models as failing but also add the CalibratedClassifierCV equivalent to
+    # the list of scikit-learn models to test in the notebooks.
+    if "probability" in signature(est.__init__).parameters and calibrated:
         cv = None
         cv_rep = None
         if "cv" in extra_params:
             cv = extra_params.pop("cv")
             cv_rep = extra_params_rep.pop("cv")
         est_weighted = CalibratedClassifierCV(
-            estimator=est(random_state=seed, **extra_params), cv=cv, ensemble=False
+            estimator=clone(est).set_params(random_state=seed, **extra_params),
+            cv=cv,
+            ensemble=False,
         )
         est_repeated = CalibratedClassifierCV(
-            estimator=est(random_state=seed, **extra_params_rep),
+            estimator=clone(est).set_params(random_state=seed, **extra_params_rep),
             cv=cv_rep,
             ensemble=False,
         )
     else:
-        est_weighted = est(random_state=seed, **extra_params)
-        est_repeated = est(random_state=seed, **extra_params_rep)
+        est_weighted = clone(est).set_params(random_state=seed, **extra_params)
+        est_repeated = clone(est).set_params(random_state=seed, **extra_params_rep)
 
-    ## for case of transformers only X is fit on
-    if not is_regressor(est()) and not is_classifier(est()):
-        est_weighted.fit(X_train, sample_weight=sample_weight)
-        est_repeated.fit(X_resampled_by_weights)
-    else:
-        est_weighted.fit(X_train, y_train, sample_weight=sample_weight)
-        est_repeated.fit(X_resampled_by_weights, y_resampled_by_weights)
+    est_weighted.fit(X_train, y_train, sample_weight=sample_weight)
+    est_repeated.fit(X_resampled_by_weights, y_resampled_by_weights)
 
     return est_weighted, est_repeated
 
 
 def get_regression_results(est_weighted, est_repeated, X_test_diverse_subset):
-
     return est_weighted.predict(X_test_diverse_subset), est_repeated.predict(
         X_test_diverse_subset
     )
@@ -138,20 +141,19 @@ def get_classifier_results(
 
 
 def get_transformer_results(est, est_weighted, est_repeated, X_test_diverse_subset):
-
-    ## TO DO: currently output is flattened but should be changed to
+    ## TODO: currently output is flattened but should be changed to
     ## handle all the output dimensions individually
-    if est.__name__ == "KBinsDiscretizer":
+
+    # TODO: remove estimator specific branches and always rely on the `transform`
+    # method.
+    if isinstance(est, KBinsDiscretizer):
         predictions_weighted = np.stack(est_weighted.bin_edges_)
         predictions_repeated = np.stack(est_repeated.bin_edges_)
-    elif est.__name__ == "RandomTreesEmbedding":
+    elif isinstance(est, RandomTreesEmbedding):
         predictions_weighted = est_weighted.transform(X_test_diverse_subset)
-
         predictions_repeated = est_repeated.transform(X_test_diverse_subset)
-
     else:
         predictions_weighted = np.asarray(est_weighted.transform(X_test_diverse_subset))
-
         predictions_repeated = np.asarray(est_repeated.transform(X_test_diverse_subset))
 
     if isinstance(predictions_weighted, csr_matrix) or isinstance(
@@ -169,22 +171,22 @@ def get_transformer_results(est, est_weighted, est_repeated, X_test_diverse_subs
 def get_predictions(
     est, est_weighted, est_repeated, X_test_diverse_subset, n_classes=None
 ):
-    if is_regressor(est()):
-        predictions_weighted, predictions_repeated = get_regression_results(
+    if is_regressor(est):
+        preds_weighted, preds_repeated = get_regression_results(
             est_weighted, est_repeated, X_test_diverse_subset
         )
-
-    elif is_classifier(est()):
-
-        predictions_weighted, predictions_repeated = get_classifier_results(
+        # Reshape to 2D to match classifier and tranformer output shapes.
+        return preds_weighted.reshape(-1, 1), preds_repeated.reshape(-1, 1)
+    elif is_classifier(est):
+        return get_classifier_results(
             est_weighted, est_repeated, X_test_diverse_subset, n_classes
         )
-
-    else:
-        predictions_weighted, predictions_repeated = get_transformer_results(
+    elif hasattr(est, "transform"):
+        return get_transformer_results(
             est, est_weighted, est_repeated, X_test_diverse_subset
         )
-    return predictions_weighted, predictions_repeated
+    else:
+        raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
 def multifit_over_weighted_and_repeated(
@@ -216,7 +218,7 @@ def multifit_over_weighted_and_repeated(
         X, y, train_size=train_size * n_cv_group, **kwargs
     )
 
-    if "cv" in signature(est).parameters:
+    if "cv" in signature(est.__init__).parameters:
         extra_params, extra_params_rep = get_cv_split(
             est,
             extra_params,
@@ -228,7 +230,7 @@ def multifit_over_weighted_and_repeated(
             sample_weight,
         )
 
-    est_init = est(random_state=0, **extra_params)
+    est_init = clone(est).set_params(random_state=0, **extra_params)
 
     est_init.fit(X_train, y_train, sample_weight=sample_weight)
 
@@ -243,7 +245,6 @@ def multifit_over_weighted_and_repeated(
     predictions_repeated_all = []
     ##add progress bar
     for seed in tqdm(range(max_seed)):
-
         est_weighted, est_repeated = get_est_weighted_and_repeated(
             est,
             seed,
