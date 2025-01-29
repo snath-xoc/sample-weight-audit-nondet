@@ -1,8 +1,6 @@
 import numpy as np
-import sys
 
-sys.path.insert(1, "../")
-from scipy.stats import multinomial, kstest
+from scipy.stats import multinomial
 import pytest
 
 from sklearn.base import (
