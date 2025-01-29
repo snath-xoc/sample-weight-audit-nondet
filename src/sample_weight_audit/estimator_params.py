@@ -1,4 +1,12 @@
-NON_DEFAULT_PARAMS = {
+# XXX: better use the estimator class as keys instead off fully qualified names that includes
+# private submodule names that are not necessarily stable accross scikit-learn
+# versions.
+
+# XXX: the values could also be turned into a list in case there are multiple
+# known configurations that make the estimator stochastic.
+
+# Parametrizations of scikit-learn estimators that are known to make them stochastic.
+STOCHASTIC_FIT_PARAMS = {
     "sklearn.linear_model._coordinate_descent.ElasticNet": {"selection": "random"},
     "sklearn.tree._classes.DecisionTreeRegressor": {"max_features": 0.5},
     "sklearn.linear_model._coordinate_descent.ElasticNetCV": {"selection": "cyclic"},
@@ -42,7 +50,3 @@ NON_DEFAULT_PARAMS = {
         "n_estimators": 20,
     },
 }
-
-
-def get_config():
-    return NON_DEFAULT_PARAMS

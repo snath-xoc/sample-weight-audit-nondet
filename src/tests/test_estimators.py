@@ -11,20 +11,19 @@ from sklearn.base import (
     TransformerMixin,
     RegressorMixin,
     clone,
-    is_regressor,
 )
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_random_state
 
-from sample_weight_audit import weighted_repeated_fit_equivalence_test
+from sample_weight_audit import check_weighted_repeated_estimator_fit_equivalence
 
 
 class NoisyClassifier(ClassifierMixin, BaseEstimator):
     def __init__(
         self,
         classifier=None,
-        temperature=2.0,
+        temperature=0.1,
         random_state=None,
         ignore_sample_weight=False,
     ):
@@ -43,11 +42,14 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
         if self.ignore_sample_weight:
             sample_weight = None
 
+        # Let's first fit a classifier that is assumed to respect sample weights
+        # deterministically.
         base_clf = clone(classifier).fit(X, y, sample_weight=sample_weight)
-
         y_proba = base_clf.predict_proba(X)
 
-        # Scale by inverse temperature to control amount of injected stochasticity:
+        # Make the fit non-deterministic by sampling stochastic labels from the
+        # probabilities returned by the deterministic classifier: scale by
+        # inverse temperature to control amount of injected stochasticity.
         y_proba /= self.temperature
         y_proba /= y_proba.sum(axis=1, keepdims=True)
         noisy_y = np.concatenate(
@@ -67,7 +69,7 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
     def __init__(
         self,
         transformer=None,
-        noise_scale=2,
+        noise_scale=0.01,
         ignore_sample_weight=False,
         random_state=None,
     ):
@@ -88,7 +90,13 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
             transformer = clone(self.transformer)
 
         self._base_transformer = transformer.fit(X, y, sample_weight=sample_weight)
-        self._random_offsets = rng.normal(scale=self.noise_scale, size=X.shape[1])
+        X_trans = self._base_transformer.transform(X)
+
+        # Make the fit non-deterministic by sampling random offsets to be added to
+        # the transformed data:
+        self._random_offsets = rng.normal(scale=self.noise_scale, size=X_trans.shape[1]) * np.std(
+            X_trans, axis=0
+        )
         return self
 
     def transform(self, X):
@@ -99,7 +107,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     def __init__(
         self,
         regressor=None,
-        noise_scale=2,
+        noise_scale=0.01,
         ignore_sample_weight=False,
         random_state=None,
     ):
@@ -118,47 +126,34 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
             regressor = clone(self.regressor)
 
         self._base_regressor = regressor.fit(X, y, sample_weight=sample_weight)
+        y_pred = self._base_regressor.predict(X)
+
+        # Make the fit non-deterministic by sampling a random offset to be
+        # added to the predictions:
+        rng = check_random_state(self.random_state)
+        self.random_offset_ = rng.normal(scale=self.noise_scale) * np.std(y_pred)
         return self
 
     def predict(self, X):
-        rng = check_random_state(self.random_state)
-        random_offsets = rng.normal(scale=self.noise_scale, size=X.shape[0])
-        return self._base_regressor.predict(X) + random_offsets
-
+        return self._base_regressor.predict(X) + self.random_offset_
 
 
 @pytest.mark.parametrize("ignore_sample_weight", [False, True])
-@pytest.mark.parametrize("test", ["welch", "kstest", "ed_perm", "mannwhitneyu"])
+@pytest.mark.parametrize("test_name", ["welch", "kstest", "mannwhitneyu", "ed_perm"])
 @pytest.mark.parametrize(
-    "est", [NoisyClassifier(), NoisyRegressor(), NoisyTransformer()],
-    ids=["classifier", "regressor", "transformer"],
+    "est",
+    [
+        NoisyClassifier(random_state=0),
+        NoisyRegressor(random_state=0),
+        NoisyTransformer(random_state=0),
+    ],
+    ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
 )
-def test_equivalence_on_noisy_estimator(est, test, ignore_sample_weight):
-    est = est
-    if is_regressor(est):
-        max_seed = 30
-    else:
-        max_seed = 10
-
-    results = weighted_repeated_fit_equivalence_test(
-        est,
-        n_features=10,
-        test=test,
-        max_seed=max_seed,
-        train_size=300,
-        n_samples_per_cv_group=500,
-        rep_test_size=20,
-        max_repeats=5,
-        n_classes=4,
-        correct_threshold=True,
-        equal_var=False,
-        issparse=False,
-        ignore_sample_weight=ignore_sample_weight,
+def test_equivalence_on_noisy_estimator(est, test_name, ignore_sample_weight):
+    results = check_weighted_repeated_estimator_fit_equivalence(
+        est, test_name=test_name, random_state=0
     )
-
     if ignore_sample_weight:
-        assert results["min_p_value"] < 0.05
+        assert results.min_p_value < 0.05
     else:
-        pvalues = np.sort(results["p_values"].flatten())
-        uniform = np.sort(np.random.uniform(size=pvalues.shape[0]))
-        assert (kstest(uniform, pvalues).pvalue) > 0.05
+        assert results.mean_p_value > 0.05
