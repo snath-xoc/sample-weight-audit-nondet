@@ -10,7 +10,7 @@ from tqdm import tqdm
 from .data import (
     get_diverse_subset,
     make_data_for_estimator,
-    make_weighted_and_repeated_train_test,
+    weighted_and_repeated_train_test_split,
 )
 from .estimator_params import STOCHASTIC_FIT_PARAMS
 from .statistical_testing import ed_perm_test, run_1d_test
@@ -35,14 +35,13 @@ class EquivalenceTestResult:
 def check_weighted_repeated_estimator_fit_equivalence(
     est,
     test_name="ed_perm",
-    n_samples_per_cv_group=200,
+    n_samples_per_cv_group=100,
     n_cv_group=3,
     n_features=10,
     n_classes=3,
     max_sample_weight=10,
-    n_stochastic_fits=200,
+    n_stochastic_fits=300,
     stat_test_dim=30,
-    fit_on_sparse_data=False,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -64,17 +63,10 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     """
 
-    X, y = make_data_for_estimator(
-        est, n_samples_per_cv_group * n_cv_group, n_features, n_classes=n_classes
-    )
-
-    if fit_on_sparse_data:
-        X = csr_array(X)
-
     predictions_weighted, predictions_repeated, _ = multifit_over_weighted_and_repeated(
         est,
-        X,
-        y,
+        n_features=n_features,
+        n_classes=n_classes,
         n_stochastic_fits=n_stochastic_fits,
         stat_test_dim=stat_test_dim,
         n_samples_per_cv_group=n_samples_per_cv_group,
@@ -181,13 +173,14 @@ def compute_predictions(est, X):
 
 def multifit_over_weighted_and_repeated(
     est,
-    X,
-    y,
     n_stochastic_fits=200,
     stat_test_dim=30,
-    n_samples_per_cv_group=300,
+    n_samples_per_cv_group=100,
     n_cv_group=3,
-    max_sample_weight=10,
+    n_features=10,
+    n_classes=3,
+    test_pool_size=1000,
+    max_sample_weight=5,
     random_state=None,
 ):
     extra_params = non_default_params(est)
@@ -199,19 +192,29 @@ def multifit_over_weighted_and_repeated(
         use_cv = False
         effective_train_size = n_samples_per_cv_group
 
+    X, y, sample_weight = make_data_for_estimator(
+        est,
+        effective_train_size + test_pool_size,
+        n_features=n_features,
+        n_classes=n_classes,
+        max_sample_weight=max_sample_weight,
+        random_state=random_state,
+    )
+
     (
         X_train,
         y_train,
+        sample_weight_train,
         X_resampled_by_weights,
         y_resampled_by_weights,
-        sample_weight,
         X_test,
-        _,
-    ) = make_weighted_and_repeated_train_test(
+        y_test,
+        sample_weight_test,
+    ) = weighted_and_repeated_train_test_split(
         X,
         y,
+        sample_weight=sample_weight,
         train_size=effective_train_size,
-        max_sample_weight=max_sample_weight,
         random_state=random_state,
     )
 
@@ -222,7 +225,7 @@ def multifit_over_weighted_and_repeated(
             n_samples_per_cv_group,
             X_train,
             X_resampled_by_weights,
-            sample_weight,
+            sample_weight_train,
         )
     else:
         extra_params_weighted = extra_params.copy()
@@ -230,14 +233,15 @@ def multifit_over_weighted_and_repeated(
 
     # Perform one reference fit to inspect the predictions dimensions.
     est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
-    est_ref.fit(X_train, y_train, sample_weight=sample_weight)
+    est_ref.fit(X_train, y_train, sample_weight=sample_weight_train)
 
-    predictions_ref = compute_predictions(est_ref, X_test)
+    predictions_ref = compute_predictions(est_ref, X_test[:1])
 
     # Adjust the number of predictions so that stat_test_dim = n_test_data_points *
-    # prediction_dim for all evaluated models. This is necessary to
+    # prediction_dim for all evaluated models. This is necessary to be able to
+    # compare the p-values across different models.
     assert predictions_ref.ndim == 2
-    assert predictions_ref.shape[0] == X_test.shape[0]
+    assert predictions_ref.shape[0] == 1
     prediction_dim = predictions_ref.shape[1]
 
     # Reduce the dimensionality of the predictions if necessary.
@@ -255,25 +259,25 @@ def multifit_over_weighted_and_repeated(
     else:
         project = lambda x: x  # noqa: E731
 
-    test_size = stat_test_dim // prediction_dim
+    n_test_data_points = stat_test_dim // prediction_dim
 
     # XXX: requiring that prediction_dim is a divisor of stat_test_dim. We
-    # could alteranatively implement set test_size += 1 and truncates some of
+    # could alteranatively implement set n_test_data_points += 1 and truncates some of
     # the predictions dimensions to match the desired stat_test_dim.
-    assert test_size * prediction_dim == stat_test_dim
+    assert n_test_data_points * prediction_dim == stat_test_dim
 
     # If the following does not hold, we should raise an informative error message to tell
-    assert test_size <= X_test.shape[0]
+    assert n_test_data_points <= X_test.shape[0]
 
     X_test_diverse_subset = get_diverse_subset(
-        X_test, predictions_ref, test_size=test_size
+        X_test, y_test, sample_weight_test, test_size=n_test_data_points
     )
     predictions_weighted_all = []
     predictions_repeated_all = []
     for seed in tqdm(range(n_stochastic_fits)):
         est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
         est_repeated = clone(est).set_params(random_state=seed, **extra_params_repeated)
-        est_weighted.fit(X_train, y_train, sample_weight=sample_weight)
+        est_weighted.fit(X_train, y_train, sample_weight=sample_weight_train)
         est_repeated.fit(X_resampled_by_weights, y_resampled_by_weights)
 
         predictions_weighted = compute_predictions(est_weighted, X_test_diverse_subset)

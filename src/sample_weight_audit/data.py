@@ -2,108 +2,138 @@ import numpy as np
 from scipy.sparse import csr_matrix, csr_array
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.base import is_regressor, is_classifier
-from sklearn.utils import check_random_state
+from sklearn.utils import check_random_state, shuffle
 from sklearn.model_selection import train_test_split
 
 __all__ = [
-    "add_outliers",
     "get_diverse_subset",
-    "make_weighted_and_repeated_train_test",
+    "weighted_and_repeated_train_test_split",
     "make_data_for_estimator",
 ]
 
 
-def add_outliers(X, y, random_state=None):
-    # Add some faulty data
-    rng = check_random_state(random_state)
-    outliers = rng.choice(X.shape[0], 30, replace=False)
-    y[outliers] += 2 * y.max() + rng.rand(len(outliers)) * 10
-    inlier_mask = np.ones(X.shape[0], dtype=bool)
-    inlier_mask[outliers] = False
+def get_diverse_subset(X_test, y_test, sample_weight_test, test_size=10):
+    X_test = np.repeat(X_test, sample_weight_test, axis=0)
+    y_test = np.repeat(y_test, sample_weight_test)
 
-    return y, inlier_mask
-
-
-def get_diverse_subset(X_test, predictions, test_size=10):
-    if isinstance(predictions, csr_matrix) or isinstance(predictions, csr_array):
-        predictions = predictions.toarray()
-    if predictions.ndim == 2:
-        # XXX: arbitrarily use only the first column to judge diversity. This
-        # might be weak. for some estimators. Maybe we should instance run
-        # kmeans++ in a PCA(n_components=10) space of the predictions instead.
-        predictions = predictions[:, 0]
-    prediction_ranks = predictions.argsort()
-    test_indices = prediction_ranks[
-        np.linspace(0, len(prediction_ranks) - 1, test_size).astype(np.int32)
+    target_rank = y_test.argsort(stable=True)
+    test_indices = target_rank[
+        np.linspace(0, len(target_rank) - 1, test_size).astype(np.int32)
     ]
     return X_test[test_indices]
 
 
-def make_weighted_and_repeated_train_test(
-    X, y, train_size=500, max_sample_weight=5, random_state=None
+def weighted_and_repeated_train_test_split(
+    X, y, sample_weight, train_size=500, random_state=None
 ):
-    rng = check_random_state(random_state)
-    issparse = False
-    if isinstance(X, csr_array):
-        X = X.toarray()
-        issparse = True
-
     if y is None:
-        y = X
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size, random_state=42
-    )
-
-    sample_weight = rng.randint(0, max_sample_weight + 1, size=X_train.shape[0])
-    X_resampled_by_weights = np.repeat(X_train, sample_weight, axis=0)
-    y_resampled_by_weights = np.repeat(y_train, sample_weight, axis=0)
-
-    if y is None:
+        X_train, X_test, sample_weight_train, sample_weight_test = train_test_split(
+            X, sample_weight, train_size=train_size, random_state=random_state
+        )
         y_train = None
-        y_resampled_by_weights = None
         y_test = None
+    else:
+        X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
+            train_test_split(
+                X, y, sample_weight, train_size=train_size, random_state=random_state
+            )
+        )
+    repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
+    X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)
 
-    if issparse:
-        X_train = csr_array(X_train)
-        X_resampled_by_weights = csr_array(X_resampled_by_weights)
-        X_test = csr_array(X_test)
+    if y is None:
+        y_resampled_by_weights = None
+    else:
+        y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
 
     return (
         X_train,
         y_train,
+        sample_weight_train,
         X_resampled_by_weights,
         y_resampled_by_weights,
-        sample_weight,
         X_test,
         y_test,
+        sample_weight_test,
     )
 
 
-def make_data_for_estimator(est, n_samples, n_features, n_classes=None):
+def make_data_for_estimator(est, n_samples, n_features, n_classes=3, max_sample_weight=5, random_state=None):
+    # Strategy: sample 2 datasets, each with n_features // 2:
+    # - the first one has int(0.8 * n_samples) but mostly zero or one weights.
+    # - the second one has the remaining samples but with higher weights.
+    #
+    # The features of the two datasets are horizontally stacked with random
+    # feature values sampled independently from the other dataset. Then the two
+    # datasets are vertically stacked and the result is shuffled.
+    #
+    # The sum of weights of the second dataset is 10 times the sum of weights of
+    # the first dataset so that weight aware estimators should mostly ignore the
+    # features of the first dataset to learn their prediction function.
+
+    rng = check_random_state(random_state)
+    n_samples_sw = int(0.8 * n_samples)  # small weights
+    n_samples_lw = n_samples - n_samples_sw  # large weights
+    n_features_sw = n_features // 2
+    n_features_lw = n_features - n_features_sw
+
+    # Ensure we get enough data points with large weights to be able to
+    # get both training and testing data.
+    assert n_samples_lw > 30
+
+    # Also ensure that we have at least one feature in each dataset.
+    assert n_features_sw >= 1
+    assert n_features_lw >= 1
+
+    # Construct the sample weights: mostly zeros and some ones for the first
+    # dataset, and some random integers larger than one for the second dataset.
+    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.1, 1, 0)
+    sample_weight_lw = rng.randint(2, max_sample_weight, n_samples_lw)
+    total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
+    assert np.sum(sample_weight_sw) < 0.1 * total_weight_sum
+
     if is_regressor(est):
-        X, y = make_regression(
-            n_samples=n_samples,
-            n_features=n_features,
-            noise=100,
-            random_state=10,
+        X_sw, y_sw = make_regression(
+            n_samples=n_samples_sw,
+            n_features=n_features_sw,
+            random_state=rng,
         )
-        y, _ = add_outliers(X, y, random_state=10)
-    elif is_classifier(est):
-        X, y = make_classification(
-            n_samples=n_samples,
-            n_features=n_features,
-            random_state=10,
-            n_informative=4,
-            n_classes=n_classes,
+        X_lw, y_lw = make_regression(
+            n_samples=n_samples_lw,
+            n_features=n_features_lw,
+            random_state=rng,  # rng is different because mutated
         )
     else:
-        centres = np.array([[0, 0, 0], [0, 5, 5], [3, 1, 1], [2, 4, 4], [100, 8, 800]])
-        X, _ = make_blobs(
-            n_samples=n_samples,
-            cluster_std=0.5,
-            centers=centres,
-            random_state=10,
+        # Bloby data, both to test for classifiers and transformers.
+        X_sw, y_sw = make_classification(
+            n_samples=n_samples_sw,
+            n_features=n_features_sw,
+            n_informative=n_features_sw,
+            n_redundant=0,
+            n_repeated=0,
+            n_classes=n_classes,
+            random_state=rng,
         )
-        y = None
-    return X, y
+        X_lw, y_lw = make_classification(
+            n_samples=n_samples_lw,
+            n_features=n_features_lw,
+            n_informative=n_features_lw,
+            n_redundant=0,
+            n_repeated=0,
+            n_classes=n_classes,
+            random_state=rng,  # rng is different because mutated
+        )
+
+    # Horizontally pad the features with features values marginally sampled
+    # from the other dataset.
+    pad_sw_idx = rng.choice(n_samples_lw, size=n_samples_sw, replace=True)
+    X_sw_padded = np.hstack([X_sw, np.take(X_lw, pad_sw_idx, axis=0)])
+
+    pad_lw_idx = rng.choice(n_samples_sw, size=n_samples_lw, replace=True)
+    X_lw_padded = np.hstack([np.take(X_sw, pad_lw_idx, axis=0), X_lw])
+
+    # Vertically stack the two datasets and shuffle them.
+    X = np.concatenate([X_sw_padded, X_lw_padded], axis=0)
+    y = np.concatenate([y_sw, y_lw])
+    sample_weight = np.concatenate([sample_weight_sw, sample_weight_lw])
+    return shuffle(X, y, sample_weight, random_state=rng)

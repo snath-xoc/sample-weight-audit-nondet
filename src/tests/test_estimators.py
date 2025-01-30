@@ -33,7 +33,7 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
     def fit(self, X, y, sample_weight=None):
         rng = check_random_state(self.random_state)
         if self.classifier is None:
-            classifier = LogisticRegression()
+            classifier = LogisticRegression(tol=1e-3, max_iter=1_000)
         else:
             classifier = self.classifier
 
