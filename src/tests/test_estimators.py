@@ -144,6 +144,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
 )
 def test_equivalence_on_noisy_estimator(est, test_name, ignore_sample_weight):
+    est.set_params(ignore_sample_weight=ignore_sample_weight)
     result = check_weighted_repeated_estimator_fit_equivalence(
         est, test_name=test_name, random_state=0
     )
