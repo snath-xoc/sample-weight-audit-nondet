@@ -24,7 +24,7 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
     def __init__(
         self,
         classifier=None,
-        noise_scale=1e-3,
+        noise_scale=1e-1,
         random_state=None,
         ignore_sample_weight=False,
     ):
@@ -63,7 +63,7 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
     def __init__(
         self,
         transformer=None,
-        noise_scale=1e-3,
+        noise_scale=1e-1,
         ignore_sample_weight=False,
         random_state=None,
     ):
@@ -101,7 +101,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     def __init__(
         self,
         regressor=None,
-        noise_scale=1e-3,
+        noise_scale=1e-1,
         ignore_sample_weight=False,
         random_state=None,
     ):
