@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import math
 
 import numpy as np
-from scipy.sparse import csr_array
 from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.random_projection import GaussianRandomProjection

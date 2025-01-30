@@ -58,7 +58,9 @@ def weighted_and_repeated_train_test_split(
     )
 
 
-def make_data_for_estimator(est, n_samples, n_features, n_classes=3, max_sample_weight=5, random_state=None):
+def make_data_for_estimator(
+    est, n_samples, n_features, n_classes=3, max_sample_weight=5, random_state=None
+):
     # Strategy: sample 2 datasets, each with n_features // 2:
     # - the first one has int(0.8 * n_samples) but mostly zero or one weights.
     # - the second one has the remaining samples but with higher weights.
@@ -87,8 +89,8 @@ def make_data_for_estimator(est, n_samples, n_features, n_classes=3, max_sample_
 
     # Construct the sample weights: mostly zeros and some ones for the first
     # dataset, and some random integers larger than one for the second dataset.
-    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.1, 1, 0)
-    sample_weight_lw = rng.randint(2, max_sample_weight, n_samples_lw)
+    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.05, 1, 0)
+    sample_weight_lw = rng.randint(2, max_sample_weight, size=n_samples_lw)
     total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
     assert np.sum(sample_weight_sw) < 0.1 * total_weight_sum
 
