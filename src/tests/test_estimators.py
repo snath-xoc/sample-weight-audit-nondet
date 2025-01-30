@@ -1,6 +1,6 @@
 import numpy as np
 
-from scipy.stats import multinomial
+from scipy.special import softmax
 import pytest
 
 from sklearn.base import (
@@ -9,6 +9,9 @@ from sklearn.base import (
     TransformerMixin,
     RegressorMixin,
     clone,
+)
+from sklearn.utils.estimator_checks import (
+    check_sample_weight_equivalence_on_dense_data,
 )
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.preprocessing import StandardScaler
@@ -21,14 +24,14 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
     def __init__(
         self,
         classifier=None,
-        temperature=1e-3,
+        noise_scale=1e-3,
         random_state=None,
         ignore_sample_weight=False,
     ):
         self.classifier = classifier
         self.random_state = random_state
         self.ignore_sample_weight = ignore_sample_weight
-        self.temperature = temperature
+        self.noise_scale = noise_scale
 
     def fit(self, X, y, sample_weight=None):
         rng = check_random_state(self.random_state)
@@ -42,25 +45,18 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
 
         # Let's first fit a classifier that is assumed to respect sample weights
         # deterministically.
-        base_clf = clone(classifier).fit(X, y, sample_weight=sample_weight)
-        y_proba = base_clf.predict_proba(X)
+        self._base_classifier = clone(classifier).fit(X, y, sample_weight=sample_weight)
+        y_proba = self._base_classifier.predict_proba(X)
 
-        # Make the fit non-deterministic by sampling stochastic labels from the
-        # probabilities returned by the deterministic classifier: scale by
-        # inverse temperature to control amount of injected stochasticity.
-        y_proba /= self.temperature
-        y_proba /= y_proba.sum(axis=1, keepdims=True)
-        noisy_y = np.concatenate(
-            [
-                multinomial.rvs(n=1, p=p, size=1, random_state=rng).argmax(axis=1)
-                for p in y_proba
-            ]
+        logits = np.log(y_proba + 1e-12)
+        self.logits_offset_ = rng.normal(
+            scale=self.noise_scale * np.std(logits, axis=0), size=logits.shape[1]
         )
-        self._noisy_clf = clone(classifier).fit(X, noisy_y, sample_weight=sample_weight)
         return self
 
     def predict_proba(self, X):
-        return self._noisy_clf.predict_proba(X)
+        logits = self._base_classifier.predict_proba(X)
+        return softmax(logits + self.logits_offset_, axis=1)
 
 
 class NoisyTransformer(TransformerMixin, BaseEstimator):
@@ -92,9 +88,9 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
 
         # Make the fit non-deterministic by sampling random offsets to be added to
         # the transformed data:
-        self._random_offsets = rng.normal(scale=self.noise_scale, size=X_trans.shape[1]) * np.std(
-            X_trans, axis=0
-        )
+        self._random_offsets = rng.normal(
+            scale=self.noise_scale, size=X_trans.shape[1]
+        ) * np.std(X_trans, axis=0)
         return self
 
     def transform(self, X):
@@ -155,3 +151,21 @@ def test_equivalence_on_noisy_estimator(est, test_name, ignore_sample_weight):
         assert result.min_p_value < 0.05
     else:
         assert result.mean_p_value > 0.05
+
+
+@pytest.mark.parametrize(
+    "est",
+    [
+        NoisyClassifier(random_state=0, noise_scale=0, ignore_sample_weight=False),
+        NoisyRegressor(random_state=0, noise_scale=0, ignore_sample_weight=False),
+        NoisyTransformer(random_state=0, noise_scale=0, ignore_sample_weight=False),
+    ],
+    ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
+)
+def test_equivalence_on_determinitic_estimator(est):
+    est_name = est.__class__.__name__
+    check_sample_weight_equivalence_on_dense_data(est_name, est)
+
+    bad_est = clone(est).set_params(ignore_sample_weight=True)
+    with pytest.raises(AssertionError):
+        check_sample_weight_equivalence_on_dense_data(est_name, bad_est)
