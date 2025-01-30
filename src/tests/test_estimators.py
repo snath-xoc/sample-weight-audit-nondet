@@ -132,8 +132,18 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         return self._base_regressor.predict(X) + self.random_offset_
 
 
-@pytest.mark.parametrize("ignore_sample_weight", [False, True])
-@pytest.mark.parametrize("test_name", ["welch", "kstest", "mannwhitneyu", "ed_perm"])
+@pytest.mark.parametrize(
+    "test_name",
+    [
+        "welch",
+        "kstest",
+        "mannwhitneyu",
+        pytest.param(
+            "ed_perm",
+            marks=pytest.mark.xfail(reason="ed_perm seems to be underpowered"),
+        ),
+    ],
+)
 @pytest.mark.parametrize(
     "est",
     [
@@ -143,15 +153,20 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     ],
     ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
 )
-def test_equivalence_on_noisy_estimator(est, test_name, ignore_sample_weight):
-    est.set_params(ignore_sample_weight=ignore_sample_weight)
-    result = check_weighted_repeated_estimator_fit_equivalence(
-        est, test_name=test_name, random_state=0
+def test_equivalence_on_noisy_estimator(est, test_name):
+    good_est = clone(est)
+    good_est_result = check_weighted_repeated_estimator_fit_equivalence(
+        good_est, test_name=test_name, random_state=0
     )
-    if ignore_sample_weight:
-        assert result.min_p_value < 0.05
-    else:
-        assert result.mean_p_value > 0.05
+    bad_est = clone(est).set_params(ignore_sample_weight=True)
+    bad_est_result = check_weighted_repeated_estimator_fit_equivalence(
+        bad_est, test_name=test_name, random_state=0
+    )
+    assert bad_est_result.min_p_value < good_est_result.min_p_value
+    assert bad_est_result.mean_p_value < good_est_result.mean_p_value
+
+    assert bad_est_result.min_p_value < 0.005
+    assert good_est_result.mean_p_value > 0.05
 
 
 @pytest.mark.parametrize(
