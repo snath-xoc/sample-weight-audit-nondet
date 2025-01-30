@@ -29,8 +29,8 @@ class EquivalenceTestResult:
     def __repr__(self):
         return (
             "EquivalenceTestResult("
-            f"estimator_name={self.estimator_name:!r}, "
-            f"test_name={self.test_name:!r}, "
+            f"estimator_name={self.estimator_name!r}, "
+            f"test_name={self.test_name!r}, "
             f"min_p_value={self.min_p_value}, "
             f"mean_p_value={self.mean_p_value})"
         )
