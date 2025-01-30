@@ -97,7 +97,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     if np.all(diffs < np.finfo(diffs.dtype).eps):
         raise ValueError(message)
 
-    p_vals = []
 
     assert predictions_weighted.ndim == 3
     assert predictions_weighted.shape[0] == n_stochastic_fits
@@ -115,23 +114,24 @@ def check_weighted_repeated_estimator_fit_equivalence(
         test_results = ed_perm_test(
             data_to_test_weighted, data_to_test_repeated, random_state=random_state
         )
-        p_vals = [test_results.pvalue]
+        pvalues = [test_results.pvalue]
     else:
         # Iterate of all statistical test dimensions and compute p-values
         # for each dimension.
+        pvalues = []
         for i in range(stat_test_dim):
             pvalue = run_1d_test(
                 data_to_test_weighted[i], data_to_test_repeated[i], test_name
             ).pvalue
-            p_vals.append(pvalue)
+            pvalues.append(pvalue)
 
-    p_vals = np.asarray(p_vals)
+    pvalues = np.asarray(pvalues)
     return EquivalenceTestResult(
         est.__class__.__name__,
         test_name,
-        p_vals.min(),
-        np.nanmean(p_vals),
-        p_vals,
+        pvalues.min(),
+        np.nanmean(pvalues),
+        pvalues,
         predictions_weighted,
         predictions_repeated,
     )
