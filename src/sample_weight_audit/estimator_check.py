@@ -18,7 +18,8 @@ from .statistical_testing import ed_perm_test, run_1d_test
 
 @dataclass
 class EquivalenceTestResult:
-    name: str
+    estimator_name: str
+    test_name: str
     min_p_value: float
     mean_p_value: float
     p_values: np.ndarray
@@ -27,7 +28,10 @@ class EquivalenceTestResult:
 
     def __repr__(self):
         return (
-            f"EquivalenceTestResult(name={self.name}, min_p_value={self.min_p_value}, "
+            "EquivalenceTestResult("
+            f"estimator_name={self.estimator_name:!r}, "
+            f"test_name={self.test_name:!r}, "
+            f"min_p_value={self.min_p_value}, "
             f"mean_p_value={self.mean_p_value})"
         )
 
@@ -82,7 +86,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
     message = (
         f"Repeatedly fitting {est} with different random seeds led to the "
         "same predictions: please check sample weight equivalence by an exact "
-        " equality test instead of statistical tests."
+        "equality test instead of statistical tests."
     )
     diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
     if np.all(diffs < np.finfo(diffs.dtype).eps):
@@ -118,6 +122,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
     p_vals = np.asarray(p_vals)
     return EquivalenceTestResult(
         est.__class__.__name__,
+        test_name,
         p_vals.min(),
         np.nanmean(p_vals),
         p_vals,

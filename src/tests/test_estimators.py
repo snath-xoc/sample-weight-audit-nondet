@@ -21,7 +21,7 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
     def __init__(
         self,
         classifier=None,
-        temperature=0.1,
+        temperature=1e-3,
         random_state=None,
         ignore_sample_weight=False,
     ):
@@ -67,7 +67,7 @@ class NoisyTransformer(TransformerMixin, BaseEstimator):
     def __init__(
         self,
         transformer=None,
-        noise_scale=0.01,
+        noise_scale=1e-3,
         ignore_sample_weight=False,
         random_state=None,
     ):
@@ -105,7 +105,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     def __init__(
         self,
         regressor=None,
-        noise_scale=0.01,
+        noise_scale=1e-3,
         ignore_sample_weight=False,
         random_state=None,
     ):
@@ -148,10 +148,10 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
     ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
 )
 def test_equivalence_on_noisy_estimator(est, test_name, ignore_sample_weight):
-    results = check_weighted_repeated_estimator_fit_equivalence(
+    result = check_weighted_repeated_estimator_fit_equivalence(
         est, test_name=test_name, random_state=0
     )
     if ignore_sample_weight:
-        assert results.min_p_value < 0.05
+        assert result.min_p_value < 0.05
     else:
-        assert results.mean_p_value > 0.05
+        assert result.mean_p_value > 0.05
