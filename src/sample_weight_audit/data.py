@@ -78,10 +78,10 @@ def make_data_for_estimator(
 
     # Construct the sample weights: mostly zeros and some ones for the first
     # dataset, and some random integers larger than one for the second dataset.
-    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.05, 1, 0)
+    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.2, 1, 0)
     sample_weight_lw = rng.randint(2, max_sample_weight, size=n_samples_lw)
     total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
-    assert np.sum(sample_weight_sw) < 0.1 * total_weight_sum
+    assert np.sum(sample_weight_sw) < 0.3 * total_weight_sum
 
     if is_regressor(est):
         X_sw, y_sw = make_regression(
