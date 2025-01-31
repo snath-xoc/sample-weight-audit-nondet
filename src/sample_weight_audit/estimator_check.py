@@ -12,7 +12,6 @@ from .data import (
     make_data_for_estimator,
     weighted_and_repeated_train_test_split,
 )
-from .estimator_params import STOCHASTIC_FIT_PARAMS
 from .statistical_testing import ed_perm_test, run_1d_test
 
 
@@ -136,33 +135,24 @@ def check_weighted_repeated_estimator_fit_equivalence(
     )
 
 
-def non_default_params(est):
-    est_class = est.__class__
-    est_name = est_class.__module__ + "." + est_class.__name__
-    return STOCHASTIC_FIT_PARAMS.get(est_name, {})
-
-
-def add_cv_params(
-    extra_params,
+def get_cv_params(
     n_cv_group,
     n_samples_per_cv_group,
     X_train,
     X_resampled_by_weights,
     sample_weight,
 ):
-    extra_params_weighted = extra_params.copy()
     groups_weighted = np.hstack(
         ([np.full(n_samples_per_cv_group, i) for i in range(n_cv_group)])
     )
     splits_weighted = list(LeaveOneGroupOut().split(X_train, groups=groups_weighted))
-    extra_params_weighted["cv"] = splits_weighted
+    extra_params_weighted = {"cv": splits_weighted}
 
-    extra_params_repeated = extra_params.copy()
     groups_repeated = np.repeat(groups_weighted, sample_weight.astype(int), axis=0)
     splits_repeated = list(
         LeaveOneGroupOut().split(X_resampled_by_weights, groups=groups_repeated)
     )
-    extra_params_repeated["cv"] = splits_repeated
+    extra_params_repeated = {"cv": splits_repeated}
     return extra_params_weighted, extra_params_repeated
 
 
@@ -193,8 +183,6 @@ def multifit_over_weighted_and_repeated(
     max_sample_weight=5,
     random_state=None,
 ):
-    extra_params = non_default_params(est)
-
     if "cv" in est.get_params():
         use_cv = True
         effective_train_size = n_samples_per_cv_group * n_cv_group
@@ -229,8 +217,7 @@ def multifit_over_weighted_and_repeated(
     )
 
     if use_cv:
-        extra_params_weighted, extra_params_repeated = add_cv_params(
-            extra_params,
+        extra_params_weighted, extra_params_repeated = get_cv_params(
             n_cv_group,
             n_samples_per_cv_group,
             X_train,
@@ -238,8 +225,8 @@ def multifit_over_weighted_and_repeated(
             sample_weight_train,
         )
     else:
-        extra_params_weighted = extra_params.copy()
-        extra_params_repeated = extra_params.copy()
+        extra_params_weighted = {}
+        extra_params_repeated = {}
 
     # Perform one reference fit to inspect the predictions dimensions.
     est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
