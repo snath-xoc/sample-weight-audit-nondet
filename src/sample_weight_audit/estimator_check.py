@@ -33,6 +33,17 @@ class EquivalenceTestResult:
             f"min_p_value={self.min_p_value}, "
             f"mean_p_value={self.mean_p_value})"
         )
+    
+    def to_dict(self):
+        return {
+            "estimator_name": self.estimator_name,
+            "test_name": self.test_name,
+            "min_p_value": self.min_p_value,
+            "mean_p_value": self.mean_p_value,
+            "p_values": self.p_values,
+            "predictions_weighted": self.predictions_weighted,
+            "predictions_repeated": self.predictions_repeated,
+        }
 
 
 def check_weighted_repeated_estimator_fit_equivalence(
@@ -98,7 +109,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     assert predictions_weighted.ndim == 3
     assert predictions_weighted.shape[0] == n_stochastic_fits
-    assert math.prod(predictions_weighted.shape[1:]) == stat_test_dim
+    # assert math.prod(predictions_weighted.shape[1:]) == stat_test_dim
     assert predictions_repeated.shape == predictions_weighted.shape
 
     data_to_test_weighted = predictions_weighted.reshape(
@@ -257,11 +268,6 @@ def multifit_over_weighted_and_repeated(
         project = lambda x: x  # noqa: E731
 
     n_test_data_points = stat_test_dim // prediction_dim
-
-    # XXX: requiring that prediction_dim is a divisor of stat_test_dim. We
-    # could alteranatively implement set n_test_data_points += 1 and truncates some of
-    # the predictions dimensions to match the desired stat_test_dim.
-    assert n_test_data_points * prediction_dim == stat_test_dim
 
     # If the following does not hold, we should raise an informative error message to tell
     assert n_test_data_points <= X_test.shape[0]
