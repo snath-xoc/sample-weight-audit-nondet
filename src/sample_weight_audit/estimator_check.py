@@ -12,7 +12,7 @@ from .data import (
     make_data_for_estimator,
     weighted_and_repeated_train_test_split,
 )
-from .statistical_testing import ed_perm_test, run_1d_test
+from .statistical_testing import run_1d_test
 
 
 @dataclass
@@ -48,7 +48,7 @@ class EquivalenceTestResult:
 
 def check_weighted_repeated_estimator_fit_equivalence(
     est,
-    test_name="ed_perm",
+    test_name="kstest",
     n_samples_per_cv_group=100,
     n_cv_group=3,
     n_features=10,
@@ -119,20 +119,14 @@ def check_weighted_repeated_estimator_fit_equivalence(
         (n_stochastic_fits, stat_test_dim)
     ).T
 
-    if test_name == "ed_perm":
-        test_results = ed_perm_test(
-            data_to_test_weighted, data_to_test_repeated, random_state=random_state
-        )
-        pvalues = [test_results.pvalue]
-    else:
-        # Iterate of all statistical test dimensions and compute p-values
-        # for each dimension.
-        pvalues = []
-        for i in range(stat_test_dim):
-            pvalue = run_1d_test(
-                data_to_test_weighted[i], data_to_test_repeated[i], test_name
-            ).pvalue
-            pvalues.append(pvalue)
+    # Iterate of all statistical test dimensions and compute p-values
+    # for each dimension.
+    pvalues = []
+    for i in range(stat_test_dim):
+        pvalue = run_1d_test(
+            data_to_test_weighted[i], data_to_test_repeated[i], test_name
+        ).pvalue
+        pvalues.append(pvalue)
 
     pvalues = np.asarray(pvalues)
     return EquivalenceTestResult(

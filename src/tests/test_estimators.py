@@ -138,10 +138,6 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         "welch",
         "kstest",
         "mannwhitneyu",
-        pytest.param(
-            "ed_perm",
-            marks=pytest.mark.xfail(reason="ed_perm seems to be underpowered"),
-        ),
     ],
 )
 @pytest.mark.parametrize(
