@@ -7,6 +7,8 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.random_projection import GaussianRandomProjection
 from tqdm import tqdm
 
+from sample_weight_audit.exceptions import UnexpectedDeterministicPredictions
+
 from .data import (
     get_diverse_subset,
     make_data_for_estimator,
@@ -100,11 +102,11 @@ def check_weighted_repeated_estimator_fit_equivalence(
     )
     diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
     if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise ValueError(message)
+        raise UnexpectedDeterministicPredictions(message)
 
     diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
     if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise ValueError(message)
+        raise UnexpectedDeterministicPredictions(message)
 
 
     assert predictions_weighted.ndim == 3

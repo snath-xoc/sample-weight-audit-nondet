@@ -16,6 +16,8 @@ from sklearn.preprocessing import KBinsDiscretizer
 from sklearn.svm import SVC, LinearSVR, NuSVC
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import (
+    AdaBoostClassifier,
+    AdaBoostRegressor,
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
     HistGradientBoostingRegressor,
@@ -29,6 +31,12 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 # Parametrizations of scikit-learn estimators that are known to make them stochastic.
 STOCHASTIC_FIT_PARAMS = {
+    AdaBoostClassifier: {
+        "estimator": DecisionTreeClassifier(max_depth=1, max_features=0.5)
+    },
+    AdaBoostRegressor: {
+        "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
+    },
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
     Ridge: {"solver": "sag"},
@@ -54,17 +62,16 @@ STOCHASTIC_FIT_PARAMS = {
         "solver": "liblinear",
         "max_iter": 10000,
     },
-    NuSVC: {"probability": False},
+    NuSVC: {"probability": True},
     RidgeClassifier: {"solver": "saga"},
-    SVC: {"probability": False},
+    SVC: {"probability": True},
     KBinsDiscretizer: {
         "subsample": 50,
         "encode": "ordinal",
-        "strategy": "kmeans",
+        "strategy": "quantile",
     },
     MiniBatchKMeans: {"reassignment_ratio": 0.9},
     RandomTreesEmbedding: {
         "n_estimators": 10,
     },
 }
-
