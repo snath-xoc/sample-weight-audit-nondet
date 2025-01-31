@@ -114,10 +114,10 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     data_to_test_weighted = predictions_weighted.reshape(
         (n_stochastic_fits, stat_test_dim)
-    ).T
+    ).T  # shape: (stat_test_dim, n_stochastic_fits)
     data_to_test_repeated = predictions_repeated.reshape(
         (n_stochastic_fits, stat_test_dim)
-    ).T
+    ).T  # shape: (stat_test_dim, n_stochastic_fits)
 
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
