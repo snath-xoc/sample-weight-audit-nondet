@@ -2,8 +2,10 @@ Auditing tool for sample weight equivalence over all regressors, classifiers and
 Testing is done under the non-deterministic case where we can only compare estimator results in expectation and not absolute value.
 The sample weight equivalence assumes equivalence in estimator results between weighted and repeated samples (i.e., a weight of n should be equivalent to n-times repitition)
 
-The repo is hosted on PyPi as well: https://test.pypi.org/project/sample-weight-audit/#description
+Getting started:
 
-Quick installation:
+```
+pip install -e .
+```
 
-pip install -i https://test.pypi.org/simple/ sample-weight-audit
+Then run the notebook(s) in the `reports/` folder.
