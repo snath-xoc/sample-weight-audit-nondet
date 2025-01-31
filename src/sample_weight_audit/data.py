@@ -26,25 +26,14 @@ def get_diverse_subset(X_test, y_test, sample_weight_test, test_size=10):
 def weighted_and_repeated_train_test_split(
     X, y, sample_weight, train_size=500, random_state=None
 ):
-    if y is None:
-        X_train, X_test, sample_weight_train, sample_weight_test = train_test_split(
-            X, sample_weight, train_size=train_size, random_state=random_state
+    X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
+        train_test_split(
+            X, y, sample_weight, train_size=train_size, random_state=random_state
         )
-        y_train = None
-        y_test = None
-    else:
-        X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
-            train_test_split(
-                X, y, sample_weight, train_size=train_size, random_state=random_state
-            )
-        )
+    )
     repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
     X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)
-
-    if y is None:
-        y_resampled_by_weights = None
-    else:
-        y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
+    y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
 
     return (
         X_train,
