@@ -55,7 +55,7 @@ class NoisyClassifier(ClassifierMixin, BaseEstimator):
         return self
 
     def predict_proba(self, X):
-        logits = self._base_classifier.predict_proba(X)
+        logits = np.log(self._base_classifier.predict_proba(X) + 1e-12)
         return softmax(logits + self.logits_offset_, axis=1)
 
 
