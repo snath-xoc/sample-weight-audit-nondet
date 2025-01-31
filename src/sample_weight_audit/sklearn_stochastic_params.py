@@ -33,9 +33,9 @@ STOCHASTIC_FIT_PARAMS = {
     LinearSVC: {"dual": True},
     Ridge: {"solver": "sag"},
     Lasso: {"selection": "random"},
-    LassoCV: {"selection": "random"},  # XXX: why would this be stochastic?
+    LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
-    ElasticNetCV: {"selection": "random"},  # XXX: why would this be stochastic?
+    ElasticNetCV: {"selection": "random"},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
