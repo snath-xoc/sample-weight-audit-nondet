@@ -135,7 +135,7 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
 @pytest.mark.parametrize(
     "test_name",
     [
-        "welch",
+        "ttest",
         "kstest",
         "mannwhitneyu",
     ],
