@@ -1,5 +1,4 @@
+from .estimator_check import check_weighted_repeated_estimator_fit_equivalence
 
-from .pval_tests import scan_for_pvalue as scan_for_pvalue
-from .test_on_representative_sample import (
-    weighted_repeated_fit_equivalence_test as weighted_repeated_fit_equivalence_test,
-)
+
+__all__ = ["check_weighted_repeated_estimator_fit_equivalence"]
