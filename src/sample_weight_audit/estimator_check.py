@@ -180,10 +180,15 @@ def compute_predictions(est, X):
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
-def check_pipeline_and_fit(est, X, y, sample_weight=None):
+def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
 
     if hasattr(est, "transform"):
-        est = Pipeline([("transformer", est), ("ridge", Ridge())])
+        est = Pipeline(
+            [
+                ("transformer", est),
+                ("ridge", Ridge(random_state=seed, fit_intercept=False)),
+            ]
+        )
         est = est.fit(
             X,
             y,
@@ -294,10 +299,17 @@ def multifit_over_weighted_and_repeated(
         est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
         est_repeated = clone(est).set_params(random_state=seed, **extra_params_repeated)
         est_weighted = check_pipeline_and_fit(
-            est_weighted, X_train, y_train, sample_weight=sample_weight_train
+            est_weighted,
+            X_train,
+            y_train,
+            sample_weight=sample_weight_train,
+            seed=seed,
         )
         est_repeated = check_pipeline_and_fit(
-            est_repeated, X_resampled_by_weights, y_resampled_by_weights
+            est_repeated,
+            X_resampled_by_weights,
+            y_resampled_by_weights,
+            seed=seed,
         )
 
         predictions_weighted = compute_predictions(est_weighted, X_test_diverse_subset)
