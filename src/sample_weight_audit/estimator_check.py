@@ -124,11 +124,17 @@ def check_weighted_repeated_estimator_fit_equivalence(
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
     pvalues = []
-    for i in range(stat_test_dim):
+    if hasattr(est, "transform"):
         pvalue = run_1d_test(
-            data_to_test_weighted[i], data_to_test_repeated[i], test_name
+            data_to_test_weighted.flatten(), data_to_test_repeated.flatten(), test_name
         ).pvalue
         pvalues.append(pvalue)
+    else:
+        for i in range(stat_test_dim):
+            pvalue = run_1d_test(
+                data_to_test_weighted[i], data_to_test_repeated[i], test_name
+            ).pvalue
+            pvalues.append(pvalue)
 
     pvalues = np.asarray(pvalues)
     return EquivalenceTestResult(
@@ -163,7 +169,7 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
-def compute_predictions(est, X):
+def compute_predictions(est, X, y=None, score=True):
     if is_regressor(est):
         # Reshape to 2D to match classifier and tranformer output shapes.
         return est.predict(X).reshape(-1, 1)
@@ -173,7 +179,10 @@ def compute_predictions(est, X):
         else:
             return est.decision_function(X)
     elif isinstance(est, Pipeline):
-        return est.predict(X)
+        if score:
+            return est.score(X, y)
+        else:
+            return est.predict(X)
     elif hasattr(est, "transform"):
         return est.transform(X)
     else:
@@ -261,7 +270,7 @@ def multifit_over_weighted_and_repeated(
     est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
 
-    predictions_ref = compute_predictions(est_ref, X_test[:1])
+    predictions_ref = compute_predictions(est_ref, X_test[:1], score=False)
 
     # Adjust the number of predictions so that stat_test_dim = n_test_data_points *
     # prediction_dim for all evaluated models. This is necessary to be able to
@@ -290,7 +299,7 @@ def multifit_over_weighted_and_repeated(
     # If the following does not hold, we should raise an informative error message to tell
     assert n_test_data_points <= X_test.shape[0]
 
-    X_test_diverse_subset = get_diverse_subset(
+    X_test_diverse_subset, y_test_diverse_subset = get_diverse_subset(
         X_test, y_test, sample_weight_test, test_size=n_test_data_points
     )
     predictions_weighted_all = []
@@ -312,8 +321,12 @@ def multifit_over_weighted_and_repeated(
             seed=seed,
         )
 
-        predictions_weighted = compute_predictions(est_weighted, X_test_diverse_subset)
-        predictions_repeated = compute_predictions(est_repeated, X_test_diverse_subset)
+        predictions_weighted = compute_predictions(
+            est_weighted, X_test_diverse_subset, y_test_diverse_subset
+        )
+        predictions_repeated = compute_predictions(
+            est_repeated, X_test_diverse_subset, y_test_diverse_subset
+        )
 
         predictions_weighted_all.append(project(predictions_weighted))
         predictions_repeated_all.append(project(predictions_repeated))

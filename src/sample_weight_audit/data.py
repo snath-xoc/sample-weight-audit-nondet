@@ -19,7 +19,7 @@ def get_diverse_subset(X_test, y_test, sample_weight_test, test_size=10):
     test_indices = target_rank[
         np.linspace(0, len(target_rank) - 1, test_size).astype(np.int32)
     ]
-    return X_test[test_indices]
+    return X_test[test_indices], y_test[test_indices]
 
 
 def weighted_and_repeated_train_test_split(
