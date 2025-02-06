@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.pipeline import Pipeline
+from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.random_projection import GaussianRandomProjection
@@ -180,7 +181,7 @@ def compute_predictions(est, X, y=None, score=True):
             return est.decision_function(X)
     elif isinstance(est, Pipeline):
         if score:
-            return est.score(X, y)
+            return mean_squared_error(est.predict(X), y)
         else:
             return est.predict(X)
     elif hasattr(est, "transform"):
