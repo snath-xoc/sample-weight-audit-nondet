@@ -184,7 +184,12 @@ def check_pipeline_and_fit(est, X, y, sample_weight=None):
 
     if hasattr(est, "transform"):
         est = Pipeline([("transformer", est), ("ridge", Ridge())])
-        est = est.fit(X, y, transformer__sample_weight=sample_weight)
+        est = est.fit(
+            X,
+            y,
+            transformer__sample_weight=sample_weight,
+            ridge__sample_weight=sample_weight,
+        )
     else:
         est = est.fit(X, y, sample_weight=sample_weight)
     return est
