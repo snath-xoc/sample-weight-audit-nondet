@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-import math
 
 import numpy as np
 from sklearn.base import clone, is_classifier, is_regressor
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.random_projection import GaussianRandomProjection
 from tqdm import tqdm
@@ -35,7 +36,7 @@ class EquivalenceTestResult:
             f"min_p_value={self.min_p_value}, "
             f"mean_p_value={self.mean_p_value})"
         )
-    
+
     def to_dict(self):
         return {
             "estimator_name": self.estimator_name,
@@ -108,7 +109,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     if np.all(diffs < np.finfo(diffs.dtype).eps):
         raise UnexpectedDeterministicPredictions(message)
 
-
     assert predictions_weighted.ndim == 3
     assert predictions_weighted.shape[0] == n_stochastic_fits
     # assert math.prod(predictions_weighted.shape[1:]) == stat_test_dim
@@ -178,6 +178,25 @@ def compute_predictions(est, X):
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
+def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
+    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
+        est = Pipeline(
+            [
+                ("transformer", est),
+                ("ridge", Ridge(random_state=seed, fit_intercept=False)),
+            ]
+        )
+        est = est.fit(
+            X,
+            y,
+            transformer__sample_weight=sample_weight,
+            ridge__sample_weight=sample_weight,
+        )
+    else:
+        est = est.fit(X, y, sample_weight=sample_weight)
+    return est
+
+
 def multifit_over_weighted_and_repeated(
     est,
     n_stochastic_fits=200,
@@ -237,7 +256,7 @@ def multifit_over_weighted_and_repeated(
 
     # Perform one reference fit to inspect the predictions dimensions.
     est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
-    est_ref.fit(X_train, y_train, sample_weight=sample_weight_train)
+    est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
 
     predictions_ref = compute_predictions(est_ref, X_test[:1])
 
@@ -276,8 +295,19 @@ def multifit_over_weighted_and_repeated(
     for seed in tqdm(range(n_stochastic_fits)):
         est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
         est_repeated = clone(est).set_params(random_state=seed, **extra_params_repeated)
-        est_weighted.fit(X_train, y_train, sample_weight=sample_weight_train)
-        est_repeated.fit(X_resampled_by_weights, y_resampled_by_weights)
+        est_weighted = check_pipeline_and_fit(
+            est_weighted,
+            X_train,
+            y_train,
+            sample_weight=sample_weight_train,
+            seed=seed,
+        )
+        est_repeated = check_pipeline_and_fit(
+            est_repeated,
+            X_resampled_by_weights,
+            y_resampled_by_weights,
+            seed=seed,
+        )
 
         predictions_weighted = compute_predictions(est_weighted, X_test_diverse_subset)
         predictions_repeated = compute_predictions(est_repeated, X_test_diverse_subset)

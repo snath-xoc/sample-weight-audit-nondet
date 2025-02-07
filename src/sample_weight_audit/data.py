@@ -1,7 +1,6 @@
 import numpy as np
-from scipy.sparse import csr_matrix, csr_array
-from sklearn.datasets import make_classification, make_regression, make_blobs
-from sklearn.base import is_regressor, is_classifier
+from sklearn.datasets import make_classification, make_regression
+from sklearn.base import is_classifier
 from sklearn.utils import check_random_state, shuffle
 from sklearn.model_selection import train_test_split
 
@@ -83,7 +82,7 @@ def make_data_for_estimator(
     total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
     assert np.sum(sample_weight_sw) < 0.3 * total_weight_sum
 
-    if is_regressor(est):
+    if not is_classifier(est):
         X_sw, y_sw = make_regression(
             n_samples=n_samples_sw,
             n_features=n_features_sw,
@@ -95,7 +94,6 @@ def make_data_for_estimator(
             random_state=rng,  # rng is different because mutated
         )
     else:
-        # Bloby data, both to test for classifiers and transformers.
         X_sw, y_sw = make_classification(
             n_samples=n_samples_sw,
             n_features=n_features_sw,
