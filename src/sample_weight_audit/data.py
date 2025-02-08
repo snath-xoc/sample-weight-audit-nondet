@@ -5,21 +5,9 @@ from sklearn.utils import check_random_state, shuffle
 from sklearn.model_selection import train_test_split
 
 __all__ = [
-    "get_diverse_subset",
     "weighted_and_repeated_train_test_split",
     "make_data_for_estimator",
 ]
-
-
-def get_diverse_subset(X_test, y_test, sample_weight_test, test_size=10):
-    X_test = np.repeat(X_test, sample_weight_test, axis=0)
-    y_test = np.repeat(y_test, sample_weight_test)
-
-    target_rank = y_test.argsort(stable=True)
-    test_indices = target_rank[
-        np.linspace(0, len(target_rank) - 1, test_size).astype(np.int32)
-    ]
-    return X_test[test_indices]
 
 
 def weighted_and_repeated_train_test_split(
