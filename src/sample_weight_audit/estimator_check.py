@@ -179,11 +179,6 @@ def compute_predictions(est, X, y=None, score=True):
             return est.predict_proba(X)
         else:
             return est.decision_function(X)
-    elif isinstance(est, Pipeline):
-        if score:
-            return mean_squared_error(est.predict(X), y)
-        else:
-            return est.predict(X)
     elif hasattr(est, "transform"):
         return est.transform(X)
     else:
@@ -191,8 +186,7 @@ def compute_predictions(est, X, y=None, score=True):
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-
-    if hasattr(est, "transform"):
+    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
         est = Pipeline(
             [
                 ("transformer", est),
