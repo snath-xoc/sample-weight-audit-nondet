@@ -30,14 +30,14 @@ class EquivalenceTestResult:
             "EquivalenceTestResult("
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
-            f"p_value={self.min_p_value}, "
+            f"p_value={self.p_value}, "
         )
 
     def to_dict(self):
         return {
             "estimator_name": self.estimator_name,
             "test_name": self.test_name,
-            "p_value": self.min_p_value,
+            "p_value": self.p_value,
             "scores_weighted": self.scores_weighted,
             "scores_repeated": self.scores_repeated,
         }
