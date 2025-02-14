@@ -83,7 +83,8 @@ def check_weighted_repeated_estimator_fit_equivalence(
         max_sample_weight=max_sample_weight,
         random_state=random_state,
     )
-    assert scores_weighted.ndim == 2  # (n_stochastic_fits, 1)
+
+    assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
     assert scores_weighted.shape == scores_repeated.shape
 
     message = (
@@ -99,19 +100,16 @@ def check_weighted_repeated_estimator_fit_equivalence(
     if np.all(diffs < np.finfo(diffs.dtype).eps):
         raise UnexpectedDeterministicPredictions(message)
 
-    assert scores_weighted.ndim == 2
+    assert scores_weighted.ndim == 1
     assert scores_weighted.shape[0] == n_stochastic_fits
     # assert math.prod(predictions_weighted.shape[1:]) == stat_test_dim
     assert scores_repeated.shape == scores_weighted.shape
 
-    data_to_test_weighted = scores_weighted.T  # shape: (1, n_stochastic_fits)
-    data_to_test_repeated = scores_repeated.T  # shape: (1, n_stochastic_fits)
-
+    data_to_test_weighted = scores_weighted
+    data_to_test_repeated = scores_repeated
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
-    pvalue = run_1d_test(
-        data_to_test_weighted.flatten(), data_to_test_repeated.flatten(), test_name
-    ).pvalue
+    pvalue = run_1d_test(data_to_test_weighted, data_to_test_repeated, test_name).pvalue
 
     return EquivalenceTestResult(
         est.__class__.__name__,
@@ -146,7 +144,7 @@ def get_cv_params(
 def score_estimator(est, X, y, score=True):
 
     if is_regressor(est):
-        preds = est.predict(X).reshape(-1, 1)
+        preds = est.predict(X)
         return mean_squared_error(preds, y)
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
@@ -271,7 +269,7 @@ def multifit_over_weighted_and_repeated(
         scores_weighted_all.append(scores_weighted)
         scores_repeated_all.append(scores_repeated)
 
-    scores_weighted_all = np.stack(scores_weighted_all).reshape(-1, 1)
-    scores_repeated_all = np.stack(scores_repeated_all).reshape(-1, 1)
+    scores_weighted_all = np.stack(scores_weighted_all)
+    scores_repeated_all = np.stack(scores_repeated_all)
 
     return scores_weighted_all, scores_repeated_all, X_test
