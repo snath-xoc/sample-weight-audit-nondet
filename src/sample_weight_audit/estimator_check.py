@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.base import clone, is_classifier, is_regressor
+from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, log_loss, roc_auc_score, rand_score
 from sklearn.linear_model import Ridge
@@ -143,43 +143,32 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
-def compute_predictions(est, X):
+def score_estimator(est, X, y, score=True):
+
     if is_regressor(est):
-        # Reshape to 2D to match classifier and tranformer output shapes.
-        return est.predict(X).reshape(-1, 1)
-    elif is_classifier(est):
-        if hasattr(est, "predict_proba"):
-            return est.predict_proba(X)
-        else:
-            return est.decision_function(X)
-    elif hasattr(est, "transform"):
-        return est.transform(X)
-    else:
-        raise NotImplementedError(f"Estimator type not supported: {est}")
-
-
-def score_estimator(est, X, y=None, score=True):
-
-    preds = compute_predictions(est, X)
-    if not score:
-        return preds
-    if y is None:
-        print("y-values are required when score is set to True")
-    if is_regressor(est):
+        preds = est.predict(X).reshape(-1, 1)
         return mean_squared_error(preds, y)
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
+            preds = est.predict_proba(X)
             return log_loss(y, preds)
         else:
+            preds = est.decision_function(X)
             return roc_auc_score(preds, y)
-    elif hasattr(est, "transform"):
+    elif is_clusterer(est):
+        preds = est.predict(X)
         return rand_score(preds, y)
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
+    if (
+        not is_classifier(est)
+        and not is_regressor(est)
+        and not is_clusterer(est)
+        and hasattr(est, "transform")
+    ):
         est = Pipeline(
             [
                 ("transformer", est),
@@ -256,14 +245,6 @@ def multifit_over_weighted_and_repeated(
     # Perform one reference fit to inspect the predictions dimensions.
     est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
-
-    predictions_ref = compute_predictions(est_ref, X_test[:1])
-
-    # Adjust the number of predictions so that stat_test_dim = n_test_data_points *
-    # prediction_dim for all evaluated models. This is necessary to be able to
-    # compare the p-values across different models.
-    assert predictions_ref.ndim == 2
-    assert predictions_ref.shape[0] == 1
 
     scores_weighted_all = []
     scores_repeated_all = []
