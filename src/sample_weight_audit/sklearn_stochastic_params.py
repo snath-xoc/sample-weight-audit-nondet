@@ -1,6 +1,6 @@
 # List scikit-learn estimator param
 from sklearn.calibration import LinearSVC
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import (
     ElasticNet,
@@ -49,6 +49,7 @@ STOCHASTIC_FIT_PARAMS = {
     GradientBoostingRegressor: {"max_features": 0.5},
     HistGradientBoostingRegressor: {"max_features": 0.5},
     HistGradientBoostingClassifier: {"max_features": 0.5},
+    KMeans: {"n_clusters": 10},
     RandomForestRegressor: {"max_features": 0.5},
     DecisionTreeClassifier: {"max_features": 0.5},
     DummyClassifier: {"strategy": "stratified"},
@@ -69,8 +70,9 @@ STOCHASTIC_FIT_PARAMS = {
         "subsample": 50,
         "encode": "ordinal",
         "strategy": "quantile",
+        "quantile_method": "averaged_inverted_cdf",
     },
-    MiniBatchKMeans: {"reassignment_ratio": 0.9},
+    MiniBatchKMeans: {"n_clusters": 10, "reassignment_ratio": 0.9},
     RandomTreesEmbedding: {
         "n_estimators": 10,
     },
