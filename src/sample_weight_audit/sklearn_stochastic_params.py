@@ -1,6 +1,6 @@
 # List scikit-learn estimator param
 from sklearn.calibration import LinearSVC
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.cluster import BisectingKMeans, KMeans, MiniBatchKMeans
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import (
     ElasticNet,
@@ -37,6 +37,7 @@ STOCHASTIC_FIT_PARAMS = {
     AdaBoostRegressor: {
         "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
     },
+    BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
     Ridge: {"solver": "sag"},
