@@ -37,9 +37,7 @@ STOCHASTIC_FIT_PARAMS = {
         )
     },
     AdaBoostRegressor: {
-        "estimator": DecisionTreeRegressor(
-            max_depth=1, max_features=0.5, class_weight="balanced"
-        )
+        "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
     },
     BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
