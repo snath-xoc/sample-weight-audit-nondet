@@ -32,10 +32,14 @@ from sklearn.ensemble import GradientBoostingRegressor
 # Parametrizations of scikit-learn estimators that are known to make them stochastic.
 STOCHASTIC_FIT_PARAMS = {
     AdaBoostClassifier: {
-        "estimator": DecisionTreeClassifier(max_depth=1, max_features=0.5)
+        "estimator": DecisionTreeClassifier(
+            max_depth=1, max_features=0.5, class_weight="balanced"
+        )
     },
     AdaBoostRegressor: {
-        "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
+        "estimator": DecisionTreeRegressor(
+            max_depth=1, max_features=0.5, class_weight="balanced"
+        )
     },
     BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
@@ -45,6 +49,7 @@ STOCHASTIC_FIT_PARAMS = {
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
+    DecisionTreeClassifier: {"max_features": 0.5, "class_weight": "balanced"},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
@@ -52,7 +57,6 @@ STOCHASTIC_FIT_PARAMS = {
     HistGradientBoostingClassifier: {"max_features": 0.5},
     KMeans: {"n_clusters": 10},
     RandomForestRegressor: {"max_features": 0.5},
-    DecisionTreeClassifier: {"max_features": 0.5},
     DummyClassifier: {"strategy": "stratified"},
     LogisticRegression: {
         "dual": True,
