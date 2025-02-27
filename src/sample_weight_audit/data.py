@@ -32,7 +32,7 @@ def weighted_and_repeated_train_test_split(
     )
     rng = np.random.default_rng(random_state)
     repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
-    shuffled_indices = rng.permutation(repeated_indices)
+    shuffled_indices = rng.permutation(len(repeated_indices))
     X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)[
         shuffled_indices
     ]
