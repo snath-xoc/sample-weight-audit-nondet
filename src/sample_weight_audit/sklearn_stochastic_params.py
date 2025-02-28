@@ -32,9 +32,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 # Parametrizations of scikit-learn estimators that are known to make them stochastic.
 STOCHASTIC_FIT_PARAMS = {
     AdaBoostClassifier: {
-        "estimator": DecisionTreeClassifier(
-            max_depth=1, max_features=0.5, class_weight="balanced"
-        )
+        "estimator": DecisionTreeClassifier(max_features=0.5, min_samples_split=0.3)
     },
     AdaBoostRegressor: {
         "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
@@ -47,7 +45,7 @@ STOCHASTIC_FIT_PARAMS = {
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
-    DecisionTreeClassifier: {"max_features": 0.5, "class_weight": "balanced"},
+    DecisionTreeClassifier: {"max_features": 0.5, "min_samples_split": 0.3},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
