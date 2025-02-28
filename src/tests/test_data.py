@@ -3,10 +3,9 @@ import pytest
 import numpy as np
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-from sample_weight_audit.data import make_data_for_estimator, get_diverse_subset
+from sample_weight_audit.data import make_data_for_estimator
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
@@ -32,8 +31,7 @@ def test_make_data_for_classifier(seed):
 
     assert np.abs(clf_with_sw.coef_ - clf_without_sw.coef_).max() > 0.1
 
-    X_subset = get_diverse_subset(X_test, y_test, sample_weight_test, test_size=5)
-    diff = clf_with_sw.predict_proba(X_subset) - clf_without_sw.predict_proba(X_subset)
+    diff = clf_with_sw.predict_proba(X_test) - clf_without_sw.predict_proba(X_test)
     assert np.abs(diff).max() > 0.1
 
 
@@ -60,6 +58,5 @@ def test_make_data_for_regressor(seed):
 
     assert np.abs(reg_with_sw.coef_ - reg_without_sw.coef_).max() > 0.1
 
-    X_subset = get_diverse_subset(X_test, y_test, sample_weight_test, test_size=5)
-    diff = reg_with_sw.predict(X_subset) - reg_without_sw.predict(X_subset)
+    diff = reg_with_sw.predict(X_test) - reg_without_sw.predict(X_test)
     assert np.abs(diff).max() > 0.1
