@@ -3,7 +3,12 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_squared_error, log_loss, roc_auc_score, rand_score
+from sklearn.metrics import (
+    mean_squared_error,
+    log_loss,
+    roc_auc_score,
+    adjusted_rand_score,
+)
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
 from tqdm import tqdm
@@ -155,7 +160,7 @@ def score_estimator(est, X, y, score=True):
             return roc_auc_score(preds, y)
     elif is_clusterer(est):
         preds = est.predict(X)
-        return rand_score(preds, y)
+        return adjusted_rand_score(preds, y)
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
