@@ -1,6 +1,6 @@
 # List scikit-learn estimator param
 from sklearn.calibration import LinearSVC
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import BisectingKMeans, KMeans, MiniBatchKMeans
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import (
     ElasticNet,
@@ -32,11 +32,12 @@ from sklearn.ensemble import GradientBoostingRegressor
 # Parametrizations of scikit-learn estimators that are known to make them stochastic.
 STOCHASTIC_FIT_PARAMS = {
     AdaBoostClassifier: {
-        "estimator": DecisionTreeClassifier(max_depth=1, max_features=0.5)
+        "estimator": DecisionTreeClassifier(max_features=0.5, min_samples_split=0.3)
     },
     AdaBoostRegressor: {
         "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
     },
+    BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
     Ridge: {"solver": "sag"},
@@ -44,13 +45,14 @@ STOCHASTIC_FIT_PARAMS = {
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
+    DecisionTreeClassifier: {"max_features": 0.5, "min_samples_split": 0.3},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
     HistGradientBoostingRegressor: {"max_features": 0.5},
     HistGradientBoostingClassifier: {"max_features": 0.5},
+    KMeans: {"n_clusters": 10},
     RandomForestRegressor: {"max_features": 0.5},
-    DecisionTreeClassifier: {"max_features": 0.5},
     DummyClassifier: {"strategy": "stratified"},
     LogisticRegression: {
         "dual": True,
@@ -69,8 +71,9 @@ STOCHASTIC_FIT_PARAMS = {
         "subsample": 50,
         "encode": "ordinal",
         "strategy": "quantile",
+        "quantile_method": "averaged_inverted_cdf",
     },
-    MiniBatchKMeans: {"reassignment_ratio": 0.9},
+    MiniBatchKMeans: {"n_clusters": 10, "reassignment_ratio": 0.9},
     RandomTreesEmbedding: {
         "n_estimators": 10,
     },
