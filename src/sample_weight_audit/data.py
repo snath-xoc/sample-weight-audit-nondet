@@ -33,7 +33,6 @@ def weighted_and_repeated_train_test_split(
     repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
     X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)
     y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
-
     return (
         X_train,
         y_train,
