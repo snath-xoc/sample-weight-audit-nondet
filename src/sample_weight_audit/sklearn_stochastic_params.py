@@ -32,20 +32,20 @@ from sklearn.ensemble import GradientBoostingRegressor
 # Parametrizations of scikit-learn estimators that are known to make them stochastic.
 STOCHASTIC_FIT_PARAMS = {
     AdaBoostClassifier: {
-        "estimator": DecisionTreeClassifier(max_features=0.5, min_samples_split=0.3)
+        "estimator": DecisionTreeClassifier(max_features=0.5, min_weight_fraction_leaf=0.1)
     },
     AdaBoostRegressor: {
-        "estimator": DecisionTreeRegressor(max_depth=1, max_features=0.5)
+        "estimator": DecisionTreeRegressor(max_features=0.5, min_weight_fraction_leaf=0.1)
     },
     BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
-    Ridge: {"solver": "sag"},
+    Ridge: {"solver": "sag", "max_iter": 100_000},
     Lasso: {"selection": "random"},
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
-    DecisionTreeClassifier: {"max_features": 0.5, "min_samples_split": 0.3},
+    DecisionTreeClassifier: {"max_features": 0.5, "min_weight_fraction_leaf": 0.1},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
@@ -57,15 +57,15 @@ STOCHASTIC_FIT_PARAMS = {
     LogisticRegression: {
         "dual": True,
         "solver": "liblinear",
-        "max_iter": 10000,
+        "max_iter": 100_000,
     },
     LogisticRegressionCV: {
         "dual": True,
         "solver": "liblinear",
-        "max_iter": 10000,
+        "max_iter": 100_000,
     },
     NuSVC: {"probability": True},
-    RidgeClassifier: {"solver": "saga"},
+    RidgeClassifier: {"solver": "saga", "max_iter": 100_000},
     SVC: {"probability": True},
     KBinsDiscretizer: {
         "subsample": 50,
@@ -73,7 +73,7 @@ STOCHASTIC_FIT_PARAMS = {
         "strategy": "quantile",
         "quantile_method": "averaged_inverted_cdf",
     },
-    MiniBatchKMeans: {"n_clusters": 10, "reassignment_ratio": 0.9},
+    MiniBatchKMeans: {"n_clusters": 10, "reassignment_ratio": 0.01},
     RandomTreesEmbedding: {
         "n_estimators": 10,
     },
