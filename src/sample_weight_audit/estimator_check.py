@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
+from sklearn.base import clone, is_classifier, is_regressor
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
@@ -179,7 +179,7 @@ def compute_predictions(est, X):
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-    if not is_classifier(est) and not is_regressor(est) and not is_clusterer(est):
+    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
         est = Pipeline(
             [
                 ("transformer", est),
