@@ -253,7 +253,11 @@ def multifit_over_weighted_and_repeated(
     scores_repeated_all = []
     for seed in tqdm(range(n_stochastic_fits)):
         est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
-        est_repeated = clone(est).set_params(random_state=seed, **extra_params_repeated)
+        # Use different random seeds for the other group of fits to avoid
+        # introducing an unwanted statistical dependency.
+        est_repeated = clone(est).set_params(
+            random_state=seed + n_stochastic_fits, **extra_params_repeated
+        )
         est_weighted = check_pipeline_and_fit(
             est_weighted,
             X_train,
