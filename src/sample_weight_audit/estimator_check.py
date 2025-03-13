@@ -2,12 +2,14 @@ from dataclasses import dataclass
 
 import numpy as np
 from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
+from sklearn.utils.multiclass import type_of_target
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
     mean_squared_error,
     log_loss,
     roc_auc_score,
-    adjusted_rand_score,
+    rand_score,
+    average_precision_score,
 )
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
@@ -157,10 +159,14 @@ def score_estimator(est, X, y, score=True):
             return log_loss(y, preds)
         else:
             preds = est.decision_function(X)
-            return roc_auc_score(preds, y)
+            y_type = type_of_target(y)
+            if y_type not in ("binary", "multilabel-indicator"):
+                return average_precision_score(y, preds)
+            else:
+                return roc_auc_score(preds, y)
     elif is_clusterer(est):
         preds = est.predict(X)
-        return adjusted_rand_score(preds, y)
+        return rand_score(preds, y)
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
