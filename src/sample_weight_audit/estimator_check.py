@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+from inspect import signature
 from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
 from sklearn.utils.multiclass import type_of_target
 from sklearn.pipeline import Pipeline
@@ -8,7 +9,7 @@ from sklearn.metrics import (
     mean_squared_error,
     log_loss,
     roc_auc_score,
-    rand_score,
+    adjusted_rand_score,
     average_precision_score,
 )
 from sklearn.linear_model import Ridge
@@ -38,7 +39,7 @@ class EquivalenceTestResult:
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
             f"p_value={self.p_value}, "
-            f"deterministic_flag{self.deterministic_flag}, "
+            f"deterministic_flag={self.deterministic_flag}, "
         )
 
     def to_dict(self):
@@ -99,13 +100,15 @@ def check_weighted_repeated_estimator_fit_equivalence(
     assert scores_weighted.shape == scores_repeated.shape
 
     deterministic_flag = False
-    diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
-    if np.all(diffs < np.finfo(diffs.dtype).eps):
-        deterministic_flag = True
+    if predictions_weighted.dtype != np.int32:
+        diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_flag = True
 
-    diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
-    if np.all(diffs < np.finfo(diffs.dtype).eps):
-        deterministic_flag = False
+    if predictions_repeated.dtype != np.int32:
+        diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_flag = True
 
     assert scores_weighted.ndim == 1
     assert scores_weighted.shape[0] == n_stochastic_fits
@@ -167,7 +170,7 @@ def score_estimator(est, X, y):
                 return roc_auc_score(preds, y), preds
     elif is_clusterer(est):
         preds = est.predict(X)
-        return rand_score(preds, y), preds
+        return adjusted_rand_score(preds, y), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
@@ -253,7 +256,9 @@ def multifit_over_weighted_and_repeated(
         extra_params_repeated = {}
 
     # Perform one reference fit to inspect the predictions dimensions.
-    est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
+    est_ref = clone(est).set_params(**extra_params_weighted)
+    if "random_state" in signature(est.fit).parameters:
+        est_ref.set_params(random_state=0)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
 
     scores_weighted_all = []
@@ -261,12 +266,19 @@ def multifit_over_weighted_and_repeated(
     predictions_weighted_all = []
     predictions_repeated_all = []
     for seed in tqdm(range(n_stochastic_fits)):
-        est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
-        # Use different random seeds for the other group of fits to avoid
-        # introducing an unwanted statistical dependency.
-        est_repeated = clone(est).set_params(
-            random_state=seed + n_stochastic_fits, **extra_params_repeated
-        )
+        try:
+            est_weighted = clone(est).set_params(
+                random_state=seed, **extra_params_weighted
+            )
+            # Use different random seeds for the other group of fits to avoid
+            # introducing an unwanted statistical dependency.
+            est_repeated = clone(est).set_params(
+                random_state=seed + n_stochastic_fits, **extra_params_repeated
+            )
+        finally:
+            est_weighted = clone(est).set_params(**extra_params_weighted)
+            est_repeated = clone(est).set_params(**extra_params_repeated)
+
         est_weighted = check_pipeline_and_fit(
             est_weighted,
             X_train,
