@@ -52,7 +52,7 @@ STOCHASTIC_FIT_PARAMS = {
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
-    DecisionTreeClassifier: {"max_features": 0.5},
+    DecisionTreeClassifier: {"max_features": 0.5, "min_weight_fraction_leaf": 0.1},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
