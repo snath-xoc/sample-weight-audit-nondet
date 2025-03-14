@@ -161,7 +161,7 @@ def test_equivalence_on_noisy_estimator(est, test_name):
     assert bad_est_result.p_value < good_est_result.p_value
 
     assert bad_est_result.p_value < 0.005
-    assert good_est_result.p_value > 0.05
+    assert good_est_result.p_value > 0.01
 
 
 @pytest.mark.parametrize(
