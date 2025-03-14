@@ -15,7 +15,6 @@ from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
 from tqdm import tqdm
 
-from sample_weight_audit.exceptions import UnexpectedDeterministicPredictions
 
 from .data import (
     make_data_for_estimator,
@@ -31,6 +30,7 @@ class EquivalenceTestResult:
     p_value: float
     scores_weighted: np.ndarray
     scores_repeated: np.ndarray
+    deterministic_flag: bool
 
     def __repr__(self):
         return (
@@ -38,6 +38,7 @@ class EquivalenceTestResult:
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
             f"p_value={self.p_value}, "
+            f"deterministic_flag{self.deterministic_flag}, "
         )
 
     def to_dict(self):
@@ -47,6 +48,7 @@ class EquivalenceTestResult:
             "p_value": self.p_value,
             "scores_weighted": self.scores_weighted,
             "scores_repeated": self.scores_repeated,
+            "deterministic_flag": self.deterministic_flag,
         }
 
 
@@ -80,32 +82,30 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     """
 
-    scores_weighted, scores_repeated = multifit_over_weighted_and_repeated(
-        est,
-        n_features=n_features,
-        n_classes=n_classes,
-        n_stochastic_fits=n_stochastic_fits,
-        n_samples_per_cv_group=n_samples_per_cv_group,
-        n_cv_group=n_cv_group,
-        max_sample_weight=max_sample_weight,
-        random_state=random_state,
+    scores_weighted, scores_repeated, predictions_weighted, predictions_repeated = (
+        multifit_over_weighted_and_repeated(
+            est,
+            n_features=n_features,
+            n_classes=n_classes,
+            n_stochastic_fits=n_stochastic_fits,
+            n_samples_per_cv_group=n_samples_per_cv_group,
+            n_cv_group=n_cv_group,
+            max_sample_weight=max_sample_weight,
+            random_state=random_state,
+        )
     )
 
     assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
     assert scores_weighted.shape == scores_repeated.shape
 
-    message = (
-        f"Repeatedly fitting {est} with different random seeds led to the "
-        "same scores: please check sample weight equivalence by an exact "
-        "equality test instead of statistical tests."
-    )
-    diffs = scores_weighted.max(axis=0) - scores_weighted.min(axis=0)
+    deterministic_flag = False
+    diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
     if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise UnexpectedDeterministicPredictions(message)
+        deterministic_flag = True
 
-    diffs = scores_repeated.max(axis=0) - scores_repeated.min(axis=0)
+    diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
     if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise UnexpectedDeterministicPredictions(message)
+        deterministic_flag = False
 
     assert scores_weighted.ndim == 1
     assert scores_weighted.shape[0] == n_stochastic_fits
@@ -124,6 +124,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
         pvalue,
         scores_weighted,
         scores_repeated,
+        deterministic_flag,
     )
 
 
@@ -148,25 +149,25 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
-def score_estimator(est, X, y, score=True):
+def score_estimator(est, X, y):
 
     if is_regressor(est):
         preds = est.predict(X)
-        return mean_squared_error(preds, y)
+        return mean_squared_error(preds, y), preds
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
             preds = est.predict_proba(X)
-            return log_loss(y, preds)
+            return log_loss(y, preds), preds
         else:
             preds = est.decision_function(X)
             y_type = type_of_target(y)
             if y_type not in ("binary", "multilabel-indicator"):
-                return average_precision_score(y, preds)
+                return average_precision_score(y, preds), preds
             else:
-                return roc_auc_score(preds, y)
+                return roc_auc_score(preds, y), preds
     elif is_clusterer(est):
         preds = est.predict(X)
-        return rand_score(preds, y)
+        return rand_score(preds, y), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
@@ -257,6 +258,8 @@ def multifit_over_weighted_and_repeated(
 
     scores_weighted_all = []
     scores_repeated_all = []
+    predictions_weighted_all = []
+    predictions_repeated_all = []
     for seed in tqdm(range(n_stochastic_fits)):
         est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
         # Use different random seeds for the other group of fits to avoid
@@ -278,13 +281,26 @@ def multifit_over_weighted_and_repeated(
             seed=seed,
         )
 
-        scores_weighted = score_estimator(est_weighted, X_test, y_test)
-        scores_repeated = score_estimator(est_repeated, X_test, y_test)
+        scores_weighted, preds_weighted = score_estimator(est_weighted, X_test, y_test)
+        scores_repeated, preds_repeated = score_estimator(est_repeated, X_test, y_test)
 
         scores_weighted_all.append(scores_weighted)
         scores_repeated_all.append(scores_repeated)
+        predictions_weighted_all.append(preds_weighted)
+        predictions_repeated_all.append(preds_repeated)
 
     scores_weighted_all = np.stack(scores_weighted_all)
     scores_repeated_all = np.stack(scores_repeated_all)
+    predictions_weighted_all = np.stack(predictions_weighted_all).reshape(
+        n_stochastic_fits, -1
+    )
+    predictions_repeated_all = np.stack(predictions_repeated_all).reshape(
+        n_stochastic_fits, -1
+    )
 
-    return scores_weighted_all, scores_repeated_all
+    return (
+        scores_weighted_all,
+        scores_repeated_all,
+        predictions_weighted_all,
+        predictions_repeated_all,
+    )
