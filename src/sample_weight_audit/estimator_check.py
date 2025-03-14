@@ -80,7 +80,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     """
 
-    scores_weighted, scores_repeated, _ = multifit_over_weighted_and_repeated(
+    scores_weighted, scores_repeated = multifit_over_weighted_and_repeated(
         est,
         n_features=n_features,
         n_classes=n_classes,
@@ -287,4 +287,4 @@ def multifit_over_weighted_and_repeated(
     scores_weighted_all = np.stack(scores_weighted_all)
     scores_repeated_all = np.stack(scores_repeated_all)
 
-    return scores_weighted_all, scores_repeated_all, X_test
+    return scores_weighted_all, scores_repeated_all
