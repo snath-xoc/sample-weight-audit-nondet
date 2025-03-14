@@ -21,6 +21,8 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import (
     AdaBoostClassifier,
     AdaBoostRegressor,
+    BaggingClassifier,
+    BaggingRegressor,
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
     HistGradientBoostingRegressor,
@@ -44,6 +46,8 @@ STOCHASTIC_FIT_PARAMS = {
             max_features=0.5, min_weight_fraction_leaf=0.1
         )
     },
+    BaggingClassifier: {"estimator": LogisticRegression()},
+    BaggingRegressor: {"estimator": Ridge()},
     BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
@@ -52,7 +56,7 @@ STOCHASTIC_FIT_PARAMS = {
     LassoCV: {"selection": "random"},
     ElasticNet: {"selection": "random"},
     ElasticNetCV: {"selection": "random"},
-    DecisionTreeClassifier: {"max_features": 0.5, "min_weight_fraction_leaf": 0.1},
+    DecisionTreeClassifier: {"max_features": 0.5},
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
