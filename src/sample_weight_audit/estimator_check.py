@@ -266,7 +266,7 @@ def multifit_over_weighted_and_repeated(
     predictions_weighted_all = []
     predictions_repeated_all = []
     for seed in tqdm(range(n_stochastic_fits)):
-        try:
+        if "random_state" in signature(est.__init__).parameters:
             est_weighted = clone(est).set_params(
                 random_state=seed, **extra_params_weighted
             )
@@ -275,7 +275,7 @@ def multifit_over_weighted_and_repeated(
             est_repeated = clone(est).set_params(
                 random_state=seed + n_stochastic_fits, **extra_params_repeated
             )
-        finally:
+        else:
             est_weighted = clone(est).set_params(**extra_params_weighted)
             est_repeated = clone(est).set_params(**extra_params_repeated)
 
