@@ -149,16 +149,21 @@ def get_cv_params(
 
 
 def score_estimator(est, X, y):
-
+    # Round to 100 x machine level epsilon to ignore discrepancies induced
+    # systematic rounding errors when fitting on datasets with different sizes.
+    decimals = int(-np.log10(np.finfo(np.float64).eps * 100))
     if is_regressor(est):
+        preds = est.predict(X).round(decimals)
         preds = est.predict(X)
         return mean_squared_error(preds, y), preds
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
             preds = est.predict_proba(X)
+            preds = est.predict_proba(X).round(decimals)
             return log_loss(y, preds), preds
         else:
             preds = est.decision_function(X)
+            preds = est.decision_function(X).round(decimals)
             y_type = type_of_target(y)
             if y_type not in ("binary", "multilabel-indicator"):
                 return average_precision_score(y, preds), preds
