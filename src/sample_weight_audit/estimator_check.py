@@ -55,6 +55,7 @@ class EquivalenceTestResult:
 
 def check_weighted_repeated_estimator_fit_equivalence(
     est,
+    est_name=None,
     test_name="kstest",
     n_samples_per_cv_group=100,
     n_cv_group=3,
@@ -118,8 +119,10 @@ def check_weighted_repeated_estimator_fit_equivalence(
         data_to_test_weighted, data_to_test_repeated, test_name
     ).pvalue
 
+    if est_name is None:
+        est_name = (est.__class__.__name__,)
     return EquivalenceTestResult(
-        est.__class__.__name__,
+        est_name,
         test_name,
         pvalue,
         scores_weighted,
