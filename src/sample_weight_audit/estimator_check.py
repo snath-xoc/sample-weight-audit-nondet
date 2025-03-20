@@ -149,6 +149,18 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
+def filter_pred_nan(preds, y):
+    if preds.ndim == 1:
+        feature_axis = 0
+    else:
+        feature_axis = 1
+    not_nan_values = ~np.isnan(preds).any(axis=feature_axis)
+    preds = preds[not_nan_values]
+    y = y[not_nan_values]
+
+    return preds, y
+
+
 def score_estimator(est, X, y):
     # Round to 100 x machine level epsilon to ignore discrepancies induced
     # systematic rounding errors when fitting on datasets with different sizes.
@@ -156,15 +168,18 @@ def score_estimator(est, X, y):
     if is_regressor(est):
         preds = est.predict(X).round(decimals)
         preds = est.predict(X)
+        preds, y = filter_pred_nan(preds, y)
         return mean_squared_error(preds, y), preds
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
             preds = est.predict_proba(X)
             preds = est.predict_proba(X).round(decimals)
+            preds, y = filter_pred_nan(preds, y)
             return log_loss(y, preds), preds
         else:
             preds = est.decision_function(X)
             preds = est.decision_function(X).round(decimals)
+            preds, y = filter_pred_nan(preds, y)
             y_type = type_of_target(y)
             if y_type not in ("binary", "multilabel-indicator"):
                 return average_precision_score(y, preds), preds
@@ -174,7 +189,8 @@ def score_estimator(est, X, y):
         if hasattr(est, "predict"):
             preds = est.predict(X)
         else:
-            preds = est.labels_
+            preds = est.fit_predict(X)
+        preds, y = filter_pred_nan(preds, y)
         return adjusted_rand_score(preds, y), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
