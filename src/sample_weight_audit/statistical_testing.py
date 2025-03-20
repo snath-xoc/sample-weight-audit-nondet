@@ -1,7 +1,7 @@
 from scipy.stats import kstest, mannwhitneyu, ttest_ind
 
 
-def run_1d_test(pred_ref, pred, test_name="kstest"):
+def run_statistical_test(pred_ref, pred, test_name="kstest"):
     if test_name == "kstest":
         test_result = kstest(pred, pred_ref)
     elif test_name == "ttest":

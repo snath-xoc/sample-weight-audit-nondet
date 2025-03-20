@@ -2,6 +2,10 @@ import numpy as np
 from sklearn.datasets import make_classification, make_regression
 from sklearn.base import is_classifier
 from sklearn.utils import check_random_state, shuffle
+from sklearn.utils.estimator_checks import (
+    _enforce_estimator_tags_y,
+    _enforce_estimator_tags_X,
+)
 from sklearn.model_selection import train_test_split
 
 __all__ = [
@@ -123,5 +127,8 @@ def make_data_for_estimator(
     # Vertically stack the two datasets and shuffle them.
     X = np.concatenate([X_sw_padded, X_lw_padded], axis=0)
     y = np.concatenate([y_sw, y_lw])
+
+    X = _enforce_estimator_tags_X(est, X)
+    y = _enforce_estimator_tags_y(est, y)
     sample_weight = np.concatenate([sample_weight_sw, sample_weight_lw])
     return shuffle(X, y, sample_weight, random_state=rng)

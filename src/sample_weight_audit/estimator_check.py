@@ -21,7 +21,7 @@ from .data import (
     make_data_for_estimator,
     weighted_and_repeated_train_test_split,
 )
-from .statistical_testing import run_1d_test
+from .statistical_testing import run_statistical_test
 
 
 @dataclass
@@ -31,7 +31,7 @@ class EquivalenceTestResult:
     p_value: float
     scores_weighted: np.ndarray
     scores_repeated: np.ndarray
-    deterministic_flag: bool
+    deterministic_predictions: bool
 
     def __repr__(self):
         return (
@@ -39,7 +39,7 @@ class EquivalenceTestResult:
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
             f"p_value={self.p_value}, "
-            f"deterministic_flag={self.deterministic_flag}, "
+            f"deterministic_predictions={self.deterministic_predictions}, "
         )
 
     def to_dict(self):
@@ -49,7 +49,7 @@ class EquivalenceTestResult:
             "p_value": self.p_value,
             "scores_weighted": self.scores_weighted,
             "scores_repeated": self.scores_repeated,
-            "deterministic_flag": self.deterministic_flag,
+            "deterministic_predictions": self.deterministic_predictions,
         }
 
 
@@ -62,7 +62,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_classes=3,
     max_sample_weight=10,
     n_stochastic_fits=300,
-    stat_test_dim=30,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -100,22 +99,24 @@ def check_weighted_repeated_estimator_fit_equivalence(
     assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
     assert scores_weighted.shape == scores_repeated.shape
 
-    deterministic_flag = False
+    deterministic_predictions = False
     if predictions_weighted.dtype != np.int32:
         diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
-            deterministic_flag = True
+            deterministic_predictions = True
 
     if predictions_repeated.dtype != np.int32:
         diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
-            deterministic_flag = True
+            deterministic_predictions = True
 
     data_to_test_weighted = scores_weighted
     data_to_test_repeated = scores_repeated
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
-    pvalue = run_1d_test(data_to_test_weighted, data_to_test_repeated, test_name).pvalue
+    pvalue = run_statistical_test(
+        data_to_test_weighted, data_to_test_repeated, test_name
+    ).pvalue
 
     return EquivalenceTestResult(
         est.__class__.__name__,
@@ -123,7 +124,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
         pvalue,
         scores_weighted,
         scores_repeated,
-        deterministic_flag,
+        deterministic_predictions,
     )
 
 
@@ -170,7 +171,10 @@ def score_estimator(est, X, y):
             else:
                 return roc_auc_score(preds, y), preds
     elif is_clusterer(est):
-        preds = est.predict(X)
+        if hasattr(est, "predict"):
+            preds = est.predict(X)
+        else:
+            preds = est.labels_
         return adjusted_rand_score(preds, y), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
@@ -198,7 +202,6 @@ def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
 def multifit_over_weighted_and_repeated(
     est,
     n_stochastic_fits=200,
-    stat_test_dim=30,
     n_samples_per_cv_group=100,
     n_cv_group=3,
     n_features=10,
