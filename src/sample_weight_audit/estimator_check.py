@@ -100,12 +100,12 @@ def check_weighted_repeated_estimator_fit_equivalence(
     assert scores_weighted.shape == scores_repeated.shape
 
     deterministic_predictions = False
-    if predictions_weighted.dtype != np.int32:
+    if predictions_weighted.dtype != int:
         diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
             deterministic_predictions = True
 
-    if predictions_repeated.dtype != np.int32:
+    if predictions_repeated.dtype != int:
         diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
             deterministic_predictions = True
@@ -188,16 +188,23 @@ def score_estimator(est, X, y):
     elif is_clusterer(est):
         if hasattr(est, "predict"):
             preds = est.predict(X)
+            preds, y = filter_pred_nan(preds, y)
         else:
-            preds = est.fit_predict(X)
-        preds, y = filter_pred_nan(preds, y)
+            preds = np.squeeze(est.fit_predict(X))
+            y = np.squeeze(y)
         return adjusted_rand_score(preds, y), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
+    if est.__class__ == Pipeline:
+        est = est.fit(
+            X,
+            y,
+            est__sample_weight=sample_weight,
+        )
+    elif not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
         est = Pipeline(
             [
                 ("transformer", est),
