@@ -15,6 +15,8 @@ def test_make_data_for_classifier(seed):
     X, y, sample_weight = make_data_for_estimator(
         clf, n_samples=5000, n_features=10, random_state=seed
     )
+    assert X.ndim == 2
+    assert y.ndim == 1
     assert X.shape[0] == y.shape[0] == sample_weight.shape[0]
     X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
         train_test_split(X, y, sample_weight, train_size=2000, random_state=seed)
@@ -43,6 +45,8 @@ def test_make_data_for_regressor(seed):
     X, y, sample_weight = make_data_for_estimator(
         reg, n_samples=5000, n_features=10, random_state=seed
     )
+    assert X.ndim == 2
+    assert y.ndim == 1
     assert X.shape[0] == y.shape[0] == sample_weight.shape[0]
     X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
         train_test_split(X, y, sample_weight, train_size=2000, random_state=seed)

@@ -6,7 +6,7 @@ from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
 from sklearn.utils.multiclass import type_of_target
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
-    mean_squared_error,
+    r2_score,
     log_loss,
     roc_auc_score,
     adjusted_rand_score,
@@ -28,7 +28,7 @@ from .statistical_testing import run_statistical_test
 class EquivalenceTestResult:
     estimator_name: str
     test_name: str
-    p_value: float
+    pvalue: float
     deterministic_predictions: bool
     scores_weighted: np.ndarray
     scores_repeated: np.ndarray
@@ -40,7 +40,7 @@ class EquivalenceTestResult:
             "EquivalenceTestResult("
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
-            f"p_value={self.p_value}, "
+            f"pvalue={self.pvalue}, "
             f"deterministic_predictions={self.deterministic_predictions}, "
         )
 
@@ -48,7 +48,7 @@ class EquivalenceTestResult:
         return {
             "estimator_name": self.estimator_name,
             "test_name": self.test_name,
-            "p_value": self.p_value,
+            "pvalue": self.pvalue,
             "scores_weighted": self.scores_weighted,
             "scores_repeated": self.scores_repeated,
             "deterministic_predictions": self.deterministic_predictions,
@@ -113,13 +113,9 @@ def check_weighted_repeated_estimator_fit_equivalence(
         if np.all(diffs < np.finfo(diffs.dtype).eps):
             deterministic_predictions = True
 
-    data_to_test_weighted = scores_weighted
-    data_to_test_repeated = scores_repeated
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
-    pvalue = run_statistical_test(
-        data_to_test_weighted, data_to_test_repeated, test_name
-    ).pvalue
+    pvalue = run_statistical_test(scores_weighted, scores_repeated, test_name).pvalue
 
     if est_name is None:
         est_name = (est.__class__.__name__,)
@@ -156,50 +152,45 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
-def filter_pred_nan(preds, y):
-    if preds.ndim == 1:
-        feature_axis = 0
-    else:
-        feature_axis = 1
-    not_nan_values = ~np.isnan(preds).any(axis=feature_axis)
-    preds = preds[not_nan_values]
-    y = y[not_nan_values]
-
-    return preds, y
+def filter_pred_nan(y, preds):
+    not_nan_mask = ~np.isnan(preds)
+    if preds.ndim == 2:
+        not_nan_mask = not_nan_mask.any(axis=1)
+    return y[not_nan_mask], preds[not_nan_mask]
 
 
-def score_estimator(est, X, y):
+def score_estimator(est, X, y, sample_weight=None):
     # Round to 100 x machine level epsilon to ignore discrepancies induced
     # systematic rounding errors when fitting on datasets with different sizes.
+
+    # XXX: shall we use the sample_weight to resample X and y instead of
+    # ignoring it?
     decimals = int(-np.log10(np.finfo(np.float64).eps * 100))
     if is_regressor(est):
         preds = est.predict(X).round(decimals)
-        preds = est.predict(X)
-        preds, y = filter_pred_nan(preds, y)
-        return mean_squared_error(preds, y), preds
+        y, preds = filter_pred_nan(y, preds)
+        return r2_score(y, preds), preds
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
-            preds = est.predict_proba(X)
             preds = est.predict_proba(X).round(decimals)
-            preds, y = filter_pred_nan(preds, y)
+            y, preds = filter_pred_nan(y, preds)
             return log_loss(y, preds), preds
         else:
-            preds = est.decision_function(X)
             preds = est.decision_function(X).round(decimals)
-            preds, y = filter_pred_nan(preds, y)
+            y, preds = filter_pred_nan(y, preds)
             y_type = type_of_target(y)
             if y_type not in ("binary", "multilabel-indicator"):
                 return average_precision_score(y, preds), preds
             else:
-                return roc_auc_score(preds, y), preds
+                return roc_auc_score(y, preds), preds
     elif is_clusterer(est):
         if hasattr(est, "predict"):
             preds = est.predict(X)
-            preds, y = filter_pred_nan(preds, y)
+            y, preds = filter_pred_nan(y, preds)
         else:
             preds = np.squeeze(est.fit_predict(X))
             y = np.squeeze(y)
-        return adjusted_rand_score(preds, y), preds
+        return adjusted_rand_score(y, preds), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
@@ -323,8 +314,12 @@ def multifit_over_weighted_and_repeated(
             seed=seed,
         )
 
-        scores_weighted, preds_weighted = score_estimator(est_weighted, X_test, y_test)
-        scores_repeated, preds_repeated = score_estimator(est_repeated, X_test, y_test)
+        scores_weighted, preds_weighted = score_estimator(
+            est_weighted, X_test, y_test, sample_weight=sample_weight_test
+        )
+        scores_repeated, preds_repeated = score_estimator(
+            est_repeated, X_test, y_test, sample_weight=sample_weight_test
+        )
 
         scores_weighted_all.append(scores_weighted)
         scores_repeated_all.append(scores_repeated)
