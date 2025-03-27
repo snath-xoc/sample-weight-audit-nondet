@@ -8,7 +8,7 @@ version = "2025.1.0"
 description = "Auditing tool for sample weight equivalence for non-deterministic estimators"
 readme = "README.md"
 maintainers = [{name = "Shruti Nath", email = "shruti@probabl.ai"}]
-dependencies = ["numpy>=1.22","scikit-learn>=1.4"]
+dependencies = ["numpy>=1.22", "scikit-learn>=1.6", "tqdm>=4.67"]
 requires-python = ">=3.9"
 
 [project.urls]
