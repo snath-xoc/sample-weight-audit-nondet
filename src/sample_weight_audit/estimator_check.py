@@ -29,9 +29,11 @@ class EquivalenceTestResult:
     estimator_name: str
     test_name: str
     p_value: float
+    deterministic_predictions: bool
     scores_weighted: np.ndarray
     scores_repeated: np.ndarray
-    deterministic_predictions: bool
+    predictions_weighted: np.ndarray
+    predictions_repeated: np.ndarray
 
     def __repr__(self):
         return (
@@ -125,9 +127,11 @@ def check_weighted_repeated_estimator_fit_equivalence(
         est_name,
         test_name,
         pvalue,
+        deterministic_predictions,
         scores_weighted,
         scores_repeated,
-        deterministic_predictions,
+        predictions_weighted,
+        predictions_repeated,
     )
 
 
