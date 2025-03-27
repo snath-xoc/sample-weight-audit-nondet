@@ -56,11 +56,12 @@ def test_make_data_for_regressor(seed):
     reg_with_sw = clone(reg).fit(X_train, y_train, sample_weight=sample_weight_train)
     reg_without_sw = clone(reg).fit(X_train, y_train)
 
-    assert np.abs(reg_with_sw.coef_[:5]).max() < 20
-    assert np.abs(reg_with_sw.coef_[5:]).max() > 20
+    predictive_coef_magnitude = 0.4
+    assert np.abs(reg_with_sw.coef_[:5]).max() < predictive_coef_magnitude
+    assert np.abs(reg_with_sw.coef_[5:]).max() > predictive_coef_magnitude
 
-    assert np.abs(reg_without_sw.coef_[:5]).max() > 20
-    assert np.abs(reg_without_sw.coef_[5:]).max() < 20
+    assert np.abs(reg_without_sw.coef_[:5]).max() > predictive_coef_magnitude
+    assert np.abs(reg_without_sw.coef_[5:]).max() < predictive_coef_magnitude
 
     assert np.abs(reg_with_sw.coef_ - reg_without_sw.coef_).max() > 0.1
 

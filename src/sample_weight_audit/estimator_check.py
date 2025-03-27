@@ -103,12 +103,12 @@ def check_weighted_repeated_estimator_fit_equivalence(
     assert scores_weighted.shape == scores_repeated.shape
 
     deterministic_predictions = False
-    if predictions_weighted.dtype != int:
+    if predictions_weighted.dtype.kind == "f":
         diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
             deterministic_predictions = True
 
-    if predictions_repeated.dtype != int:
+    if predictions_repeated.dtype.kind == "f":
         diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
         if np.all(diffs < np.finfo(diffs.dtype).eps):
             deterministic_predictions = True
@@ -160,12 +160,12 @@ def filter_pred_nan(y, preds):
 
 
 def score_estimator(est, X, y, sample_weight=None):
-    # Round to 100 x machine level epsilon to ignore discrepancies induced
-    # systematic rounding errors when fitting on datasets with different sizes.
-
     # XXX: shall we use the sample_weight to resample X and y instead of
     # ignoring it?
-    decimals = int(-np.log10(np.finfo(np.float64).eps * 100))
+
+    # Round to 10 decimal places to ignore discrepancies induced systematic
+    # rounding errors when fitting on datasets with different sizes.
+    decimals = 10
     if is_regressor(est):
         preds = est.predict(X).round(decimals)
         y, preds = filter_pred_nan(y, preds)
@@ -202,7 +202,12 @@ def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
             y,
             est__sample_weight=sample_weight,
         )
-    elif not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
+    elif (
+        not is_classifier(est)
+        and not is_regressor(est)
+        and not is_clusterer(est)
+        and hasattr(est, "transform")
+    ):
         est = Pipeline(
             [
                 ("transformer", est),
