@@ -291,6 +291,10 @@ def multifit_over_weighted_and_repeated(
     scores_repeated_all = []
     predictions_weighted_all = []
     predictions_repeated_all = []
+
+    if "random_state" not in signature(est.__init__).parameters:
+        n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
+
     for seed in tqdm(range(n_stochastic_fits)):
         if "random_state" in signature(est.__init__).parameters:
             est_weighted = clone(est).set_params(
