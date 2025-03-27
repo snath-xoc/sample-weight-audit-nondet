@@ -1,2 +1,0 @@
-class UnexpectedDeterministicPredictions(Exception):
-    pass

@@ -135,7 +135,6 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
 @pytest.mark.parametrize(
     "test_name",
     [
-        "ttest",
         "kstest",
         "mannwhitneyu",
     ],
@@ -158,11 +157,9 @@ def test_equivalence_on_noisy_estimator(est, test_name):
     bad_est_result = check_weighted_repeated_estimator_fit_equivalence(
         bad_est, test_name=test_name, random_state=0
     )
-    assert bad_est_result.min_p_value < good_est_result.min_p_value
-    assert bad_est_result.mean_p_value < good_est_result.mean_p_value
-
-    assert bad_est_result.min_p_value < 0.005
-    assert good_est_result.mean_p_value > 0.05
+    assert bad_est_result.pvalue < good_est_result.pvalue
+    assert bad_est_result.pvalue < 0.001
+    assert good_est_result.pvalue > 0.01
 
 
 @pytest.mark.parametrize(

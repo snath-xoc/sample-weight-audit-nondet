@@ -1,30 +1,37 @@
 from dataclasses import dataclass
 
 import numpy as np
-from sklearn.base import clone, is_classifier, is_regressor
+from inspect import signature
+from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
+from sklearn.utils.multiclass import type_of_target
 from sklearn.pipeline import Pipeline
+from sklearn.metrics import (
+    r2_score,
+    log_loss,
+    roc_auc_score,
+    adjusted_rand_score,
+    average_precision_score,
+)
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
-from sklearn.random_projection import GaussianRandomProjection
 from tqdm import tqdm
 
-from sample_weight_audit.exceptions import UnexpectedDeterministicPredictions
 
 from .data import (
-    get_diverse_subset,
     make_data_for_estimator,
     weighted_and_repeated_train_test_split,
 )
-from .statistical_testing import run_1d_test
+from .statistical_testing import run_statistical_test
 
 
 @dataclass
 class EquivalenceTestResult:
     estimator_name: str
     test_name: str
-    min_p_value: float
-    mean_p_value: float
-    p_values: np.ndarray
+    pvalue: float
+    deterministic_predictions: bool
+    scores_weighted: np.ndarray
+    scores_repeated: np.ndarray
     predictions_weighted: np.ndarray
     predictions_repeated: np.ndarray
 
@@ -33,24 +40,24 @@ class EquivalenceTestResult:
             "EquivalenceTestResult("
             f"estimator_name={self.estimator_name!r}, "
             f"test_name={self.test_name!r}, "
-            f"min_p_value={self.min_p_value}, "
-            f"mean_p_value={self.mean_p_value})"
+            f"pvalue={self.pvalue}, "
+            f"deterministic_predictions={self.deterministic_predictions}, "
         )
 
     def to_dict(self):
         return {
             "estimator_name": self.estimator_name,
             "test_name": self.test_name,
-            "min_p_value": self.min_p_value,
-            "mean_p_value": self.mean_p_value,
-            "p_values": self.p_values,
-            "predictions_weighted": self.predictions_weighted,
-            "predictions_repeated": self.predictions_repeated,
+            "pvalue": self.pvalue,
+            "scores_weighted": self.scores_weighted,
+            "scores_repeated": self.scores_repeated,
+            "deterministic_predictions": self.deterministic_predictions,
         }
 
 
 def check_weighted_repeated_estimator_fit_equivalence(
     est,
+    est_name=None,
     test_name="kstest",
     n_samples_per_cv_group=100,
     n_cv_group=3,
@@ -58,7 +65,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_classes=3,
     max_sample_weight=10,
     n_stochastic_fits=300,
-    stat_test_dim=30,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -80,63 +86,46 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     """
 
-    predictions_weighted, predictions_repeated, _ = multifit_over_weighted_and_repeated(
-        est,
-        n_features=n_features,
-        n_classes=n_classes,
-        n_stochastic_fits=n_stochastic_fits,
-        stat_test_dim=stat_test_dim,
-        n_samples_per_cv_group=n_samples_per_cv_group,
-        n_cv_group=n_cv_group,
-        max_sample_weight=max_sample_weight,
-        random_state=random_state,
+    scores_weighted, scores_repeated, predictions_weighted, predictions_repeated = (
+        multifit_over_weighted_and_repeated(
+            est,
+            n_features=n_features,
+            n_classes=n_classes,
+            n_stochastic_fits=n_stochastic_fits,
+            n_samples_per_cv_group=n_samples_per_cv_group,
+            n_cv_group=n_cv_group,
+            max_sample_weight=max_sample_weight,
+            random_state=random_state,
+        )
     )
-    assert (
-        predictions_weighted.ndim == 3
-    )  # (n_stochastic_fits, n_test_data_points, prediction_dim)
-    assert predictions_weighted.shape == predictions_repeated.shape
 
-    message = (
-        f"Repeatedly fitting {est} with different random seeds led to the "
-        "same predictions: please check sample weight equivalence by an exact "
-        "equality test instead of statistical tests."
-    )
-    diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
-    if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise UnexpectedDeterministicPredictions(message)
+    assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
+    assert scores_weighted.shape == scores_repeated.shape
 
-    diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
-    if np.all(diffs < np.finfo(diffs.dtype).eps):
-        raise UnexpectedDeterministicPredictions(message)
+    deterministic_predictions = False
+    if predictions_weighted.dtype.kind == "f":
+        diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_predictions = True
 
-    assert predictions_weighted.ndim == 3
-    assert predictions_weighted.shape[0] == n_stochastic_fits
-    # assert math.prod(predictions_weighted.shape[1:]) == stat_test_dim
-    assert predictions_repeated.shape == predictions_weighted.shape
-
-    data_to_test_weighted = predictions_weighted.reshape(
-        (n_stochastic_fits, stat_test_dim)
-    ).T  # shape: (stat_test_dim, n_stochastic_fits)
-    data_to_test_repeated = predictions_repeated.reshape(
-        (n_stochastic_fits, stat_test_dim)
-    ).T  # shape: (stat_test_dim, n_stochastic_fits)
+    if predictions_repeated.dtype.kind == "f":
+        diffs = predictions_repeated.max(axis=0) - predictions_repeated.min(axis=0)
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_predictions = True
 
     # Iterate of all statistical test dimensions and compute p-values
     # for each dimension.
-    pvalues = []
-    for i in range(stat_test_dim):
-        pvalue = run_1d_test(
-            data_to_test_weighted[i], data_to_test_repeated[i], test_name
-        ).pvalue
-        pvalues.append(pvalue)
+    pvalue = run_statistical_test(scores_weighted, scores_repeated, test_name).pvalue
 
-    pvalues = np.asarray(pvalues)
+    if est_name is None:
+        est_name = (est.__class__.__name__,)
     return EquivalenceTestResult(
-        est.__class__.__name__,
+        est_name,
         test_name,
-        pvalues.min(),
-        np.nanmean(pvalues),
-        pvalues,
+        pvalue,
+        deterministic_predictions,
+        scores_weighted,
+        scores_repeated,
         predictions_weighted,
         predictions_repeated,
     )
@@ -163,23 +152,62 @@ def get_cv_params(
     return extra_params_weighted, extra_params_repeated
 
 
-def compute_predictions(est, X):
+def filter_pred_nan(y, preds):
+    not_nan_mask = ~np.isnan(preds)
+    if preds.ndim == 2:
+        not_nan_mask = not_nan_mask.any(axis=1)
+    return y[not_nan_mask], preds[not_nan_mask]
+
+
+def score_estimator(est, X, y, sample_weight=None):
+    # XXX: shall we use the sample_weight to resample X and y instead of
+    # ignoring it?
+
+    # Round to 10 decimal places to ignore discrepancies induced systematic
+    # rounding errors when fitting on datasets with different sizes.
+    decimals = 10
     if is_regressor(est):
-        # Reshape to 2D to match classifier and tranformer output shapes.
-        return est.predict(X).reshape(-1, 1)
+        preds = est.predict(X).round(decimals)
+        y, preds = filter_pred_nan(y, preds)
+        return r2_score(y, preds), preds
     elif is_classifier(est):
         if hasattr(est, "predict_proba"):
-            return est.predict_proba(X)
+            preds = est.predict_proba(X).round(decimals)
+            y, preds = filter_pred_nan(y, preds)
+            return log_loss(y, preds), preds
         else:
-            return est.decision_function(X)
-    elif hasattr(est, "transform"):
-        return est.transform(X)
+            preds = est.decision_function(X).round(decimals)
+            y, preds = filter_pred_nan(y, preds)
+            y_type = type_of_target(y)
+            if y_type not in ("binary", "multilabel-indicator"):
+                return average_precision_score(y, preds), preds
+            else:
+                return roc_auc_score(y, preds), preds
+    elif is_clusterer(est):
+        if hasattr(est, "predict"):
+            preds = est.predict(X)
+            y, preds = filter_pred_nan(y, preds)
+        else:
+            preds = np.squeeze(est.fit_predict(X))
+            y = np.squeeze(y)
+        return adjusted_rand_score(y, preds), preds
     else:
         raise NotImplementedError(f"Estimator type not supported: {est}")
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-    if not is_classifier(est) and not is_regressor(est) and hasattr(est, "transform"):
+    if est.__class__ == Pipeline:
+        est = est.fit(
+            X,
+            y,
+            est__sample_weight=sample_weight,
+        )
+    elif (
+        not is_classifier(est)
+        and not is_regressor(est)
+        and not is_clusterer(est)
+        and hasattr(est, "transform")
+    ):
         est = Pipeline(
             [
                 ("transformer", est),
@@ -200,7 +228,6 @@ def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
 def multifit_over_weighted_and_repeated(
     est,
     n_stochastic_fits=200,
-    stat_test_dim=30,
     n_samples_per_cv_group=100,
     n_cv_group=3,
     n_features=10,
@@ -255,50 +282,33 @@ def multifit_over_weighted_and_repeated(
         extra_params_repeated = {}
 
     # Perform one reference fit to inspect the predictions dimensions.
-    est_ref = clone(est).set_params(random_state=0, **extra_params_weighted)
+    est_ref = clone(est).set_params(**extra_params_weighted)
+    if "random_state" in signature(est.fit).parameters:
+        est_ref.set_params(random_state=0)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
 
-    predictions_ref = compute_predictions(est_ref, X_test[:1])
-
-    # Adjust the number of predictions so that stat_test_dim = n_test_data_points *
-    # prediction_dim for all evaluated models. This is necessary to be able to
-    # compare the p-values across different models.
-    assert predictions_ref.ndim == 2
-    assert predictions_ref.shape[0] == 1
-    prediction_dim = predictions_ref.shape[1]
-
-    # Reduce the dimensionality of the predictions if necessary.
-    if prediction_dim * 3 > stat_test_dim:
-        # Reduce projection_dim such that test_size >= 3 to be able to
-        # minimally characterize the variations of the learned prediction
-        # function.
-        assert stat_test_dim % 3 == 0
-        prediction_dim = stat_test_dim // 3
-        rp = GaussianRandomProjection(
-            n_components=prediction_dim, random_state=random_state
-        )
-        rp.fit(predictions_ref)
-        project = rp.transform
-    else:
-        project = lambda x: x  # noqa: E731
-
-    n_test_data_points = stat_test_dim // prediction_dim
-
-    # If the following does not hold, we should raise an informative error message to tell
-    assert n_test_data_points <= X_test.shape[0]
-
-    X_test_diverse_subset = get_diverse_subset(
-        X_test, y_test, sample_weight_test, test_size=n_test_data_points
-    )
+    scores_weighted_all = []
+    scores_repeated_all = []
     predictions_weighted_all = []
     predictions_repeated_all = []
+
+    if "random_state" not in signature(est.__init__).parameters:
+        n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
+
     for seed in tqdm(range(n_stochastic_fits)):
-        est_weighted = clone(est).set_params(random_state=seed, **extra_params_weighted)
-        # Use different random seeds for the other group of fits to avoid
-        # introducing an unwanted statistical dependency.
-        est_repeated = clone(est).set_params(
-            random_state=seed + n_stochastic_fits, **extra_params_repeated
-        )
+        if "random_state" in signature(est.__init__).parameters:
+            est_weighted = clone(est).set_params(
+                random_state=seed, **extra_params_weighted
+            )
+            # Use different random seeds for the other group of fits to avoid
+            # introducing an unwanted statistical dependency.
+            est_repeated = clone(est).set_params(
+                random_state=seed + n_stochastic_fits, **extra_params_repeated
+            )
+        else:
+            est_weighted = clone(est).set_params(**extra_params_weighted)
+            est_repeated = clone(est).set_params(**extra_params_repeated)
+
         est_weighted = check_pipeline_and_fit(
             est_weighted,
             X_train,
@@ -313,13 +323,30 @@ def multifit_over_weighted_and_repeated(
             seed=seed,
         )
 
-        predictions_weighted = compute_predictions(est_weighted, X_test_diverse_subset)
-        predictions_repeated = compute_predictions(est_repeated, X_test_diverse_subset)
+        scores_weighted, preds_weighted = score_estimator(
+            est_weighted, X_test, y_test, sample_weight=sample_weight_test
+        )
+        scores_repeated, preds_repeated = score_estimator(
+            est_repeated, X_test, y_test, sample_weight=sample_weight_test
+        )
 
-        predictions_weighted_all.append(project(predictions_weighted))
-        predictions_repeated_all.append(project(predictions_repeated))
+        scores_weighted_all.append(scores_weighted)
+        scores_repeated_all.append(scores_repeated)
+        predictions_weighted_all.append(preds_weighted)
+        predictions_repeated_all.append(preds_repeated)
 
-    predictions_weighted_all = np.stack(predictions_weighted_all)
-    predictions_repeated_all = np.stack(predictions_repeated_all)
+    scores_weighted_all = np.stack(scores_weighted_all)
+    scores_repeated_all = np.stack(scores_repeated_all)
+    predictions_weighted_all = np.stack(predictions_weighted_all).reshape(
+        n_stochastic_fits, -1
+    )
+    predictions_repeated_all = np.stack(predictions_repeated_all).reshape(
+        n_stochastic_fits, -1
+    )
 
-    return predictions_weighted_all, predictions_repeated_all, X_test_diverse_subset
+    return (
+        scores_weighted_all,
+        scores_repeated_all,
+        predictions_weighted_all,
+        predictions_repeated_all,
+    )
