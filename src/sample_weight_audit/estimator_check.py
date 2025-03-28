@@ -197,6 +197,8 @@ def score_estimator(est, X, y, sample_weight=None):
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
     if est.__class__ == Pipeline:
+        if "ridge" in est.named_steps:
+            est["ridge"].set_params(random_state=seed)
         est = est.fit(
             X,
             y,
