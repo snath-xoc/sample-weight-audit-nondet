@@ -7,7 +7,7 @@ name = "sample-weight-audit-nondet"
 version = "2025.1.0"
 description = "Auditing tool for sample weight equivalence for non-deterministic estimators"
 readme = "README.md"
-maintainers = [{name = "Shruti Nath", email = "shruti@probabl.ai"}]
+maintainers = [{name = "Shruti Nath", email = "shruti@probabl.ai"},{name = "Olivier Grisel", email = "olivier@probabl.ai"}, {name = Jeremie du Boisberranger, email = jeremie@probabl.ai}]
 dependencies = ["numpy>=1.22", "scikit-learn>=1.6", "tqdm>=4.67"]
 requires-python = ">=3.9"
 
