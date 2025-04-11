@@ -19,7 +19,7 @@ If we have a weight-aware function $f$, then certain modifications to our weight
 
 * 0-weight invariance: Omitting samples and weighing samples as 0 should have the same outcome. For example, for a given input with $R$ denoting rows with 0 weight values.
     
-        $f(X,w) = f(X_{i\notin R},w_{i\notin R})$
+  $f(X,w) = f(X_{i\notin R},w_{i\notin R})$
   
 * No-weight invariance: Having no weights is the same having unit weights.
 
