@@ -9,3 +9,41 @@ pip install -e .
 ```
 
 Then run the notebook(s) in the `reports/` folder.
+
+# Sample Weight Documentation
+
+Property Checks
+---
+
+If we have a weight-aware function $f$, then certain modifications to our weights $w$ and sample set $X$ can be made, such that the outcome of $f$ does not change:
+
+* 0-weight invariance: Omitting samples and weighing samples as 0 should have the same outcome. For example, for a given input with $R$ denoting rows with 0 weight values.
+    \begin{equation}
+        f(X,w) = f(X_{i\notin R},w_{i\notin R})
+    \end{equation}
+* No-weight invariance: Having no weights is the same having unit weights.
+    \begin{equation}
+        f(X) = f(X,1)
+    \end{equation}
+    \item Combining data: if a subset with identical records exist, you can combine them to a single value with a weight equal to the subset's cardinality. For example, take subset $J$ which consists of values $x$ with cardinality $n$.
+    \begin{equation}
+        f(X,w) = f([X_{i\notin J},x],[w_{i\notin J},n])
+    \end{equation}
+* Splitting data: The inverse of combining, if we split a weighted sample up and apportion the weights, we should arrive at the same outcome. For example if we take $\sum w'=w_j$ for a given row $j$, then:
+    \begin{equation}
+        f(X,w) = f([X_{i\notin j},x_j],[w_{i\notin j},w'])
+    \end{equation}
+* Scale-free weights: Rescaling weights by a factor $f$ results in the same outcome.
+    \begin{equation}
+        f(X,w) = f(X,w\cdot f)
+    \end{equation}
+
+Types of weighting
+---
+Across literature there seem to be 3 types of weighting:
+
+* Precision weighting: This considers the weights to represent the precision of a sample
+* Frequency weighting
+* Sampling weighting
+
+
