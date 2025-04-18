@@ -42,7 +42,7 @@ Types of weighting
 ---
 Across literature there seem to be 3 types of weighting:
 
-* Precision weighting: This considers the weights to represent the precision of a sample. In simple terms, let's say a sample has a lot of observational error, then the precision of that sample is low, on the other hand a sample with low observational error has high precision and should be weighted more. To calculate the mean value, assuming observational errors are zero-centred, uncorrelated and have finite variance, via the Gauss-Markov theorem we get,
+* Precision weighting: This considers the weights to represent the precision of a sample. In simple terms, let's say a sample has a lot of observational error, then the precision of that sample is low. On the other hand a sample with low observational error has high precision and should be weighted more. To calculate the mean value, assuming observational errors are zero-centred, uncorrelated and have finite variance, via the Gauss-Markov theorem we get,
 
 $\mu_{X}=\frac{\sum^{n}_{i=1}w_i\cdot x_i}{\sum w}$
 
