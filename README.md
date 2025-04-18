@@ -57,16 +57,16 @@ $\sigma^2 = \frac{\sum^{n}_{i=1}w_i\cdot(y_i-\hat{\mu}_Y)}{n-1}$
 This us important, as for variance estimation only the ratio of weights matters, not absolute values.
 * Frequency weighting: This considers weights as representing the true frequency of the event. Hence to obtain the mean we simply de-compress our sample to obtain a sample size of $\sum^{n}_{i=1} w_i$, and the mean is
 
-$\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum^{n}_{i=1}w_i}$
+$\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum w}$
 
 similarly the variance is:
 
-$var[\hat{\mu}]=\frac{\sum^{n}_{i=1}w_i\cdot(y_i-\hat{\mu}_Y)}{\sum^{n}_{i=1}w_i}$
+$var[\hat{\mu}]=\frac{\sum^{n}_{i=1}w_i\cdot(y_i-\hat{\mu}_Y)}{\sum w}$
 
 Here the sample size is impacted by weights, and for variance estimation this leads to a different outcome from precision weighting. 
 * Sampling weighting: Following from frequency weighting, instead of de-compressing our sample using the weights, we can instead have a weighted sampling of our samples using the weights, this leads to a similar expected mean value,
 
-$\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum^{n}_{i=1}w_i}$
+$\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum w}$
 
 However variance estimation is trickier, see [here](https://notstatschat.rbind.io/2020/08/04/weights-in-statistics/) for further details.
 
