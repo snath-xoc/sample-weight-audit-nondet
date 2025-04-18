@@ -42,20 +42,20 @@ Types of weighting
 ---
 Across literature there seem to be 3 types of weighting:
 
-* Precision weighting: This considers the weights to represent the precision of a sample. In simple terms, let's say a sample has a lot of observational error, then the precision of that sample is low. On the other hand a sample with low observational error has high precision and should be weighted more. To calculate the mean value, assuming observational errors are zero-centred, uncorrelated and have finite variance, via the Gauss-Markov theorem we get,
+* Precision weighting: This considers the weights to represent the precision of a sample. In simple terms, let's say a sample has a lot of observational error, then the precision of that sample is low. On the other hand, a sample with low observational error has high precision and can be weighted more. To calculate the mean value, assuming observational errors converge in mean to zero,are uncorrelated and have finite variance, via the Gauss-Markov theorem we get,
 
 $\mu_{X}=\frac{\sum^{n}_{i=1}w_i\cdot x_i}{\sum w}$
 
-Since the precisions add up we can estimate the weighted variance as
+Since the precisions add up, we can estimate the weighted variance as
 
 $var[\hat{\mu}]=\frac{\sigma^2}{\sum^{n}_{i=1}w_i}$
 
-Where 
+Where, 
 
 $\sigma^2 = \frac{\sum^{n}_{i=1}w_i\cdot(y_i-\hat{\mu}_Y)}{n-1}$
 
 This is important as, for variance estimation only the ratio of weights matters, not absolute values.
-* Frequency weighting: This considers weights as representing the true frequency of the event. Hence to obtain the mean we simply de-compress our sample to obtain a sample size of $\sum^{n}_{i=1} w_i$, and the mean is
+* Frequency weighting: This considers weights as representing the true frequency of the event. Hence, to obtain the mean we simply de-compress our sample to obtain a sample size of $\sum^{n}_{i=1} w_i$, and the mean is
 
 $\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum w}$
 
