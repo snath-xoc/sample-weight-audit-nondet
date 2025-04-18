@@ -2,10 +2,7 @@ import numpy as np
 from sklearn.datasets import make_classification, make_regression
 from sklearn.base import is_classifier
 from sklearn.utils import check_random_state, shuffle
-from sklearn.utils.estimator_checks import (
-    _enforce_estimator_tags_y,
-    _enforce_estimator_tags_X,
-)
+
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import scale
 
@@ -28,13 +25,26 @@ def get_diverse_subset(X_test, y_test, sample_weight_test, test_size=10):
 
 
 def weighted_and_repeated_train_test_split(
-    X, y, sample_weight, train_size=500, random_state=None
+    X,
+    y,
+    sample_weight,
+    train_size=500,
+    random_state=None,
+    not_repeated=False,
 ):
     X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
         train_test_split(
             X, y, sample_weight, train_size=train_size, random_state=random_state
         )
     )
+    X_train = scale(X_train)
+    X_test = scale(X_test)
+    if y_train.dtype.kind == "f":
+        y_train = scale(y_train)
+    if y_test.dtype.kind == "f":
+        y_test = scale(y_test)
+    if not_repeated:
+        return X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test
     repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
     X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)
     y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
@@ -126,12 +136,8 @@ def make_data_for_estimator(
     X_lw_padded = np.hstack([np.take(X_sw, pad_lw_idx, axis=0), X_lw])
 
     # Vertically stack the two datasets and shuffle them.
-    X = scale(np.concatenate([X_sw_padded, X_lw_padded], axis=0))
+    X = np.concatenate([X_sw_padded, X_lw_padded], axis=0)
     y = np.concatenate([y_sw, y_lw])
-    if y.dtype.kind == "f":
-        y = scale(y)
 
-    X = _enforce_estimator_tags_X(est, X)
-    y = _enforce_estimator_tags_y(est, y)
     sample_weight = np.concatenate([sample_weight_sw, sample_weight_lw])
     return shuffle(X, y, sample_weight, random_state=rng)

@@ -12,6 +12,10 @@ from sklearn.metrics import (
     adjusted_rand_score,
     average_precision_score,
 )
+from sklearn.utils.estimator_checks import (
+    _enforce_estimator_tags_y,
+    _enforce_estimator_tags_X,
+)
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
 from tqdm import tqdm
@@ -53,6 +57,89 @@ class EquivalenceTestResult:
             "scores_repeated": self.scores_repeated,
             "deterministic_predictions": self.deterministic_predictions,
         }
+
+
+def check_scale_free_equivalence(
+    est,
+    est_name=None,
+    test_name="kstest",
+    n_samples_per_cv_group=100,
+    n_cv_group=3,
+    n_features=10,
+    n_classes=3,
+    max_sample_weight=10,
+    n_stochastic_fits=300,
+    random_state=None,
+):
+    """Assess the correct use of weights for estimators with stochastic fits.
+
+    This function fits an estimator with different random seeds, either with
+    weighted data or repeated data. It then runs a statistical test to check if
+    the predictions are equivalently distributed.
+
+    The statistical test supports n-dimensional predictions and returns a
+    single p-value by scanning through all test dimensions and returning the
+    minimum p-value. Note that we enforce a common dimension for the
+    statistical test to make it possible to somewhat meaningfully compare the
+    p-values across different estimators.
+
+    The test dimensionality `stat_test_dim` is the product of the number of
+    test data points for which predictions are computed and the dimensionality
+    of the predictions (1 for regressors, n_classes for classifiers, and nd for
+    transformers).
+
+    """
+
+    (
+        scores_weighted,
+        scores_scaled_weights,
+        predictions_weighted,
+        predictions_scaled_weights,
+    ) = multifit_over_weighted_and_repeated(
+        est,
+        n_features=n_features,
+        n_classes=n_classes,
+        n_stochastic_fits=n_stochastic_fits,
+        n_samples_per_cv_group=n_samples_per_cv_group,
+        n_cv_group=n_cv_group,
+        max_sample_weight=max_sample_weight,
+        random_state=random_state,
+    )
+
+    assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
+    assert scores_weighted.shape == scores_scaled_weights.shape
+
+    deterministic_predictions = False
+    if predictions_weighted.dtype.kind == "f":
+        diffs = predictions_weighted.max(axis=0) - predictions_weighted.min(axis=0)
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_predictions = True
+
+    if predictions_scaled_weights.dtype.kind == "f":
+        diffs = predictions_scaled_weights.max(axis=0) - predictions_scaled_weights.min(
+            axis=0
+        )
+        if np.all(diffs < np.finfo(diffs.dtype).eps):
+            deterministic_predictions = True
+
+    # Iterate of all statistical test dimensions and compute p-values
+    # for each dimension.
+    pvalue = run_statistical_test(
+        scores_weighted, scores_scaled_weights, test_name
+    ).pvalue
+
+    if est_name is None:
+        est_name = (est.__class__.__name__,)
+    return EquivalenceTestResult(
+        est_name,
+        test_name,
+        pvalue,
+        deterministic_predictions,
+        scores_weighted,
+        scores_scaled_weights,
+        predictions_weighted,
+        predictions_scaled_weights,
+    )
 
 
 def check_weighted_repeated_estimator_fit_equivalence(
@@ -225,6 +312,118 @@ def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
     return est
 
 
+def multifit_over_scaled_weights(
+    est,
+    n_stochastic_fits=200,
+    n_samples_per_cv_group=100,
+    n_cv_group=3,
+    n_features=10,
+    n_classes=3,
+    test_pool_size=1000,
+    max_sample_weight=5,
+    random_state=None,
+):
+    effective_train_size = n_samples_per_cv_group
+
+    X, y, sample_weight = make_data_for_estimator(
+        est,
+        effective_train_size + test_pool_size,
+        n_features=n_features,
+        n_classes=n_classes,
+        max_sample_weight=max_sample_weight,
+        random_state=random_state,
+    )
+
+    (
+        X_train,
+        y_train,
+        sample_weight_train,
+        X_test,
+        y_test,
+        sample_weight_test,
+    ) = weighted_and_repeated_train_test_split(
+        X,
+        y,
+        sample_weight=sample_weight,
+        train_size=effective_train_size,
+        random_state=random_state,
+        not_repeated=True,
+    )
+
+    X_train = _enforce_estimator_tags_X(est, X_train)
+    y_train = _enforce_estimator_tags_y(est, y_train)
+    X_test = _enforce_estimator_tags_X(est, X_test)
+    y_test = _enforce_estimator_tags_y(est, y_test)
+
+    # Perform one reference fit to inspect the predictions dimensions.
+    est_ref = clone(est)
+    if "random_state" in signature(est.fit).parameters:
+        est_ref.set_params(random_state=0)
+    est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
+
+    scores_weighted_all = []
+    scores_scaled_weights_all = []
+    predictions_weighted_all = []
+    predictions_scaled_weights_all = []
+
+    if "random_state" not in signature(est.__init__).parameters:
+        n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
+
+    for seed in tqdm(range(n_stochastic_fits)):
+
+        if "random_state" in signature(est.__init__).parameters:
+            est_weighted = clone(est).set_params(random_state=seed)
+            # Use different random seeds for the other group of fits to avoid
+            # introducing an unwanted statistical dependency.
+            est_scaled_weights = clone(est).set_params(
+                random_state=seed + n_stochastic_fits
+            )
+        else:
+            est_weighted = clone(est)
+            est_scaled_weights = clone(est)
+
+        est_weighted = check_pipeline_and_fit(
+            est_weighted,
+            X_train,
+            y_train,
+            seed=seed,
+        )
+        est_scaled_weights = check_pipeline_and_fit(
+            est_scaled_weights,
+            np.repeat(X_train, 2, axis=0),
+            np.repeat(y_train, 2, axis=0),
+            seed=seed,
+        )
+
+        scores_weighted, preds_weighted = score_estimator(
+            est_weighted, X_test, y_test, sample_weight=sample_weight_test
+        )
+        scores_scaled_weights, preds_scaled_weights = score_estimator(
+            est_scaled_weights, X_test, y_test, sample_weight=sample_weight_test
+        )
+
+        scores_weighted_all.append(scores_weighted)
+        scores_scaled_weights_all.append(scores_scaled_weights)
+        predictions_weighted_all.append(preds_weighted)
+        predictions_scaled_weights_all.append(preds_scaled_weights)
+
+    scores_weighted_all = np.stack(scores_weighted_all)
+    scores_scaled_weights_all = np.stack(scores_scaled_weights_all)
+    predictions_weighted_all = np.stack(predictions_weighted_all).reshape(
+        n_stochastic_fits, -1
+    )
+    predictions_scaled_weights_all = np.stack(predictions_scaled_weights_all).reshape(
+        n_stochastic_fits, -1
+    )
+
+    return (
+        scores_weighted_all,
+        scores_scaled_weights_all,
+        predictions_weighted_all,
+        predictions_scaled_weights_all,
+    )
+
+
 def multifit_over_weighted_and_repeated(
     est,
     n_stochastic_fits=200,
@@ -268,6 +467,13 @@ def multifit_over_weighted_and_repeated(
         train_size=effective_train_size,
         random_state=random_state,
     )
+
+    X_train = _enforce_estimator_tags_X(est, X_train)
+    y_train = _enforce_estimator_tags_y(est, y_train)
+    X_resampled_by_weights = _enforce_estimator_tags_X(est, X_resampled_by_weights)
+    y_resampled_by_weights = _enforce_estimator_tags_y(est, y_resampled_by_weights)
+    X_test = _enforce_estimator_tags_X(est, X_test)
+    y_test = _enforce_estimator_tags_y(est, y_test)
 
     if use_cv:
         extra_params_weighted, extra_params_repeated = get_cv_params(
