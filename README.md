@@ -54,7 +54,7 @@ Where
 
 $\sigma^2 = \frac{\sum^{n}_{i=1}w_i\cdot(y_i-\hat{\mu}_Y)}{n-1}$
 
-This us important, as for variance estimation only the ratio of weights matters, not absolute values.
+This is important as, for variance estimation only the ratio of weights matters, not absolute values.
 * Frequency weighting: This considers weights as representing the true frequency of the event. Hence to obtain the mean we simply de-compress our sample to obtain a sample size of $\sum^{n}_{i=1} w_i$, and the mean is
 
 $\mu_X = \frac{\sum^{n}_{i=1}w_i\cdot(x_i)}{\sum w}$
