@@ -43,7 +43,8 @@ Types of weighting
 Across literature there seem to be 3 types of weighting:
 
 * Precision weighting: This considers the weights to represent the precision of a sample. In simple terms,let's say a sample has a lot of observational error, then the precision of that sample is low, on the other hand a sample with low observational error has high precision and should be weighted more. To calculate the mean value, assuming observational errors are zero-centred, uncorrelated and have finite variance, via the Gauss-Markov theorem we get:
-$\mu_{X} = \frac{\sum^{n}_{i=1}w_i\cdot x_i}{\sum^{n}_{i=1} w_i}$
+
+$\mu_{X} = \frac{\sum^{n}_{i=1}w_{i}\cdot x_{i}}{\sum^{n}_{i=1} w_{i}}$
 
 Since the precisions add up we can estimate the weighted variance as
 
@@ -56,15 +57,15 @@ $\sigma^2 = \frac{\sum^{n}_{i=1}w_i\cdot (y_i-\hat{\mu}_Y)}{n-1}$
 This us important, as for variance estimation only the ratio of weights matters, not absolute values.
 * Frequency weighting: This considers weights as representing the true frequency of the event. Hence to obtain the mean we simply de-compress our sample to obtain a sample size of $\sum^{n}_{i=1} w_i$, and the mean is
 
-$\mu_{X} = \frac{\sum^{n}_{i=1}w_i\cdot x_i}{\sum^{n}_{i=1} w_i}$
+$\mu_{X} = \frac{\sum^{n}_{i=1}w_{i}\cdot x_{i}}{\sum^{n}_{i=1} w_{i}}$
 
 similarly the variance is:
 
-$var[\hat{\mu}]=\frac{\sum^{n}_{i=1}w_i\cdot (y_i-\hat{\mu}_Y)}{^{n}_{i=1}w_i}$
+$var[\hat{\mu}]=\frac{\sum^{n}_{i=1}w_{i}\cdot (y_{i}-\hat{\mu})}{\sum^{n}_{i=1}w_{i}}$
 Here the sample size is impacted by weights, and for variance estimation this leads to a different outcome from precision weighting. 
 * Sampling weighting: Following from frequency weighting, instead of de-compressing our sample using the weights, we can instead have a weighted sampling of our samples using the weights, this leads to a similar expected mean value,
 
-$\mu_{X} = \frac{\sum^{n}_{i=1}w_i\cdot x_i}{\sum^{n}_{i=1} w_i}$
+$\mu_{X} = \frac{\sum^{n}_{i=1}w_{i}\cdot x_{i}}{\sum^{n}_{i=1} w_{i}}$
 
 However variance estimation is trickier, see [here](https://notstatschat.rbind.io/2020/08/04/weights-in-statistics/) for further details.
 
