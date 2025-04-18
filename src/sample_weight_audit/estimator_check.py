@@ -370,7 +370,8 @@ def multifit_over_scaled_weights(
         n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
 
     for seed in tqdm(range(n_stochastic_fits)):
-
+        rng = np.random.default_rng(seed)
+        scaling_factor = rng.randint(0, 10)
         if "random_state" in signature(est.__init__).parameters:
             est_weighted = clone(est).set_params(random_state=seed)
             # Use different random seeds for the other group of fits to avoid
@@ -386,12 +387,14 @@ def multifit_over_scaled_weights(
             est_weighted,
             X_train,
             y_train,
+            sample_weight=sample_weight_train,
             seed=seed,
         )
         est_scaled_weights = check_pipeline_and_fit(
             est_scaled_weights,
-            np.repeat(X_train, 2, axis=0),
-            np.repeat(y_train, 2, axis=0),
+            X_train,
+            y_train,
+            sample_weight=scaling_factor * sample_weight_train,
             seed=seed,
         )
 
