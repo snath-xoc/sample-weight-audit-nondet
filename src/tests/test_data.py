@@ -3,10 +3,13 @@ import pytest
 import numpy as np
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
-from sample_weight_audit.data import make_data_for_estimator, get_diverse_subset
+from sample_weight_audit.data import (
+    make_data_for_estimator,
+    weighted_and_repeated_train_test_split,
+    get_diverse_subset,
+)
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
@@ -49,7 +52,9 @@ def test_make_data_for_regressor(seed):
     assert y.ndim == 1
     assert X.shape[0] == y.shape[0] == sample_weight.shape[0]
     X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = (
-        train_test_split(X, y, sample_weight, train_size=2000, random_state=seed)
+        weighted_and_repeated_train_test_split(
+            X, y, sample_weight, train_size=2000, random_state=seed, not_repeated=True
+        )
     )
 
     # Check that ignoring the weights leads to different coef values.
