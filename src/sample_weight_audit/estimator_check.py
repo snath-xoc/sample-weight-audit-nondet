@@ -292,10 +292,13 @@ def multifit_over_weighted_and_repeated(
     predictions_weighted_all = []
     predictions_repeated_all = []
 
+    shuffle = False
     if "random_state" not in signature(est.__init__).parameters:
         n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
+        shuffle = True
 
     for seed in tqdm(range(n_stochastic_fits)):
+
         if "random_state" in signature(est.__init__).parameters:
             est_weighted = clone(est).set_params(
                 random_state=seed, **extra_params_weighted
@@ -308,6 +311,20 @@ def multifit_over_weighted_and_repeated(
         else:
             est_weighted = clone(est).set_params(**extra_params_weighted)
             est_repeated = clone(est).set_params(**extra_params_repeated)
+
+        if shuffle:
+            rng = np.random.default_rng()
+            weighted_indices = rng.permutation(y_train.shape[0])
+            repeated_indices = rng.permutation(y_resampled_by_weights.shape[0])
+
+            X_train = np.take(X_train, weighted_indices, axis=0)
+            y_train = np.take(y_train, weighted_indices, axis=0)
+            X_resampled_by_weights = np.take(
+                X_resampled_by_weights, repeated_indices, axis=0
+            )
+            y_resampled_by_weights = np.take(
+                y_resampled_by_weights, repeated_indices, axis=0
+            )
 
         est_weighted = check_pipeline_and_fit(
             est_weighted,
