@@ -66,8 +66,8 @@ STOCHASTIC_FIT_PARAMS = {
     RandomForestRegressor: {"max_features": 0.5},
     DummyClassifier: {"strategy": "stratified"},
     LogisticRegression: {
-        "dual": True,
-        "solver": "liblinear",
+        "dual": False,
+        "solver": "saga",
         "max_iter": 100_000,
     },
     LogisticRegressionCV: {
