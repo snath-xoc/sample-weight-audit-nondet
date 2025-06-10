@@ -63,7 +63,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_cv_group=3,
     n_features=10,
     n_classes=3,
-    max_sample_weight=10,
     n_stochastic_fits=300,
     random_state=None,
 ):
@@ -94,7 +93,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
             n_stochastic_fits=n_stochastic_fits,
             n_samples_per_cv_group=n_samples_per_cv_group,
             n_cv_group=n_cv_group,
-            max_sample_weight=max_sample_weight,
             random_state=random_state,
         )
     )
@@ -233,7 +231,6 @@ def multifit_over_weighted_and_repeated(
     n_features=10,
     n_classes=3,
     test_pool_size=1000,
-    max_sample_weight=5,
     random_state=None,
 ):
     if "cv" in est.get_params():
@@ -248,7 +245,6 @@ def multifit_over_weighted_and_repeated(
         effective_train_size + test_pool_size,
         n_features=n_features,
         n_classes=n_classes,
-        max_sample_weight=max_sample_weight,
         random_state=random_state,
     )
 
