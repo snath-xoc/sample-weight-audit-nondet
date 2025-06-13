@@ -268,6 +268,8 @@ def multifit_over_weighted_and_repeated(
         train_size=effective_train_size,
         random_state=random_state,
     )
+    sample_weight_test = sample_weight_test / 1000
+    sample_weight_train = sample_weight_train / 1000
 
     if use_cv:
         extra_params_weighted, extra_params_repeated = get_cv_params(
