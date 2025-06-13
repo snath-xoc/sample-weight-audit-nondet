@@ -23,7 +23,9 @@ def weighted_and_repeated_train_test_split(
             X, y, sample_weight, train_size=train_size, random_state=random_state
         )
     )
-    repeated_indices = np.repeat(np.arange(X_train.shape[0]), sample_weight_train)
+    repeated_indices = np.repeat(
+        np.arange(X_train.shape[0]), (sample_weight_train * 1000).astype(int)
+    )
     X_resampled_by_weights = np.take(X_train, repeated_indices, axis=0)
     y_resampled_by_weights = np.take(y_train, repeated_indices, axis=0)
     return (
@@ -34,7 +36,7 @@ def weighted_and_repeated_train_test_split(
         y_resampled_by_weights,
         X_test,
         y_test,
-        sample_weight_test,
+        (sample_weight_test * 1000).astype(int),
     )
 
 
@@ -69,10 +71,11 @@ def make_data_for_estimator(
 
     # Construct the sample weights: mostly zeros and some ones for the first
     # dataset, and some random integers larger than one for the second dataset.
-    sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.2, 1, 0)
-    sample_weight_lw = rng.randint(2, max_sample_weight, size=n_samples_lw)
+    sample_weight_sw = np.where(rng.uniform(size=n_samples_sw) < 0.001, 0.1, 0)
+    sample_weight_lw = rng.uniform(size=n_samples_lw) / 200
     total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
-    assert np.sum(sample_weight_sw) < 0.3 * total_weight_sum
+    print(total_weight_sum)
+    assert total_weight_sum < 1  # 0.3 * total_weight_sum
 
     if not is_classifier(est):
         X_sw, y_sw = make_regression(
