@@ -1,21 +1,22 @@
 from dataclasses import dataclass
+from inspect import signature
+import warnings
 
 import numpy as np
-from inspect import signature
-from sklearn.base import clone, is_classifier, is_regressor, is_clusterer
-from sklearn.utils.multiclass import type_of_target
-from sklearn.pipeline import Pipeline
+from sklearn.base import clone, is_classifier, is_clusterer, is_regressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import (
-    r2_score,
-    log_loss,
-    roc_auc_score,
     adjusted_rand_score,
     average_precision_score,
+    log_loss,
+    r2_score,
+    roc_auc_score,
 )
-from sklearn.linear_model import Ridge
 from sklearn.model_selection import LeaveOneGroupOut
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.utils.multiclass import type_of_target
 from tqdm import tqdm
-
 
 from .data import (
     make_data_for_estimator,
@@ -132,23 +133,30 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
 
 def get_cv_params(
+    est,
     n_cv_group,
     n_samples_per_cv_group,
     X_train,
     X_resampled_by_weights,
     sample_weight,
 ):
+    cv_keys = [
+        key for key in est.get_params().keys() if (key == "cv" or key.endswith("__cv"))
+    ]
+    if not cv_keys:
+        return {}, {}
+
     groups_weighted = np.hstack(
         ([np.full(n_samples_per_cv_group, i) for i in range(n_cv_group)])
     )
     splits_weighted = list(LeaveOneGroupOut().split(X_train, groups=groups_weighted))
-    extra_params_weighted = {"cv": splits_weighted}
+    extra_params_weighted = {cv_key: splits_weighted for cv_key in cv_keys}
 
     groups_repeated = np.repeat(groups_weighted, sample_weight.astype(int), axis=0)
     splits_repeated = list(
         LeaveOneGroupOut().split(X_resampled_by_weights, groups=groups_repeated)
     )
-    extra_params_repeated = {"cv": splits_repeated}
+    extra_params_repeated = {cv_key: splits_repeated for cv_key in cv_keys}
     return extra_params_weighted, extra_params_repeated
 
 
@@ -196,11 +204,20 @@ def score_estimator(est, X, y, sample_weight=None):
 
 
 def check_pipeline_and_fit(est, X, y, sample_weight=None, seed=None):
-    if est.__class__ == Pipeline:
+    if isinstance(est, Pipeline):
+        # TODO: rely on metadata routing instance once the default routing
+        # policy is available.
+        step_names = [
+            step[0]
+            for step in est.steps
+            if "sample_weight" in signature(step[1].fit).parameters
+        ]
         est = est.fit(
             X,
             y,
-            est__sample_weight=sample_weight,
+            **{
+                f"{step_name}__sample_weight": sample_weight for step_name in step_names
+            },
         )
     elif (
         not is_classifier(est)
@@ -236,12 +253,11 @@ def multifit_over_weighted_and_repeated(
     max_sample_weight=5,
     random_state=None,
 ):
-    if "cv" in est.get_params():
-        use_cv = True
-        effective_train_size = n_samples_per_cv_group * n_cv_group
-    else:
-        use_cv = False
-        effective_train_size = n_samples_per_cv_group
+    effective_train_size = n_samples_per_cv_group
+    for param_name in est.get_params().keys():
+        if param_name == "cv" or param_name.endswith("__cv"):
+            effective_train_size = n_samples_per_cv_group * n_cv_group
+            break
 
     X, y, sample_weight = make_data_for_estimator(
         est,
@@ -251,7 +267,14 @@ def multifit_over_weighted_and_repeated(
         max_sample_weight=max_sample_weight,
         random_state=random_state,
     )
-
+    tags = est.__sklearn_tags__()
+    if tags.input_tags.categorical:
+        # Bin numerical features to categorical ones.
+        binner = KBinsDiscretizer(n_bins=5, encode="ordinal", quantile_method="averaged_inverted_cdf")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            # Ignore the warning about the number of bins being too small.
+            X = binner.fit_transform(X, y, sample_weight=sample_weight)
     (
         X_train,
         y_train,
@@ -269,20 +292,15 @@ def multifit_over_weighted_and_repeated(
         random_state=random_state,
     )
 
-    if use_cv:
-        extra_params_weighted, extra_params_repeated = get_cv_params(
-            n_cv_group,
-            n_samples_per_cv_group,
-            X_train,
-            X_resampled_by_weights,
-            sample_weight_train,
-        )
-    else:
-        extra_params_weighted = {}
-        extra_params_repeated = {}
-
-    # Perform one reference fit to inspect the predictions dimensions.
-    est_ref = clone(est).set_params(**extra_params_weighted)
+    cv_params_weighted, cv_params_repeated = get_cv_params(
+        est,
+        n_cv_group,
+        n_samples_per_cv_group,
+        X_train,
+        X_resampled_by_weights,
+        sample_weight_train,
+    )
+    est_ref = clone(est).set_params(**cv_params_weighted)
     if "random_state" in signature(est.fit).parameters:
         est_ref.set_params(random_state=0)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
@@ -298,16 +316,16 @@ def multifit_over_weighted_and_repeated(
     for seed in tqdm(range(n_stochastic_fits)):
         if "random_state" in signature(est.__init__).parameters:
             est_weighted = clone(est).set_params(
-                random_state=seed, **extra_params_weighted
+                random_state=seed, **cv_params_weighted
             )
             # Use different random seeds for the other group of fits to avoid
             # introducing an unwanted statistical dependency.
             est_repeated = clone(est).set_params(
-                random_state=seed + n_stochastic_fits, **extra_params_repeated
+                random_state=seed + n_stochastic_fits, **cv_params_repeated
             )
         else:
-            est_weighted = clone(est).set_params(**extra_params_weighted)
-            est_repeated = clone(est).set_params(**extra_params_repeated)
+            est_weighted = clone(est).set_params(**cv_params_weighted)
+            est_repeated = clone(est).set_params(**cv_params_repeated)
 
         est_weighted = check_pipeline_and_fit(
             est_weighted,
