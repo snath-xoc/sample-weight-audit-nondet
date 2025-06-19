@@ -50,7 +50,15 @@ def weighted_and_repeated_train_test_split(
     )
 
 
-def make_data_for_estimator(est, n_samples, n_features, n_classes=3, random_state=None):
+def make_data_for_estimator(
+    est,
+    n_samples,
+    n_features,
+    n_classes=3,
+    max_sample_weight=5,
+    n_samp_eq_sw_sum=False,
+    random_state=None,
+):
     # Strategy: sample 2 datasets, each with n_features // 2:
     # - the first one has int(0.9 * n_samples) but mostly zero or one weights.
     # - the second one has the remaining samples but with higher weights.
@@ -83,26 +91,33 @@ def make_data_for_estimator(est, n_samples, n_features, n_classes=3, random_stat
     # Construct the sample weights: mostly zeros and some ones for the first
     # dataset, and some random integers larger than one for the second dataset.
     # Let's start with the second dataset, which has larger weights:
-    sample_weight_lw = rng.randint(low=3, high=11, size=n_samples_lw)
-    sample_weigh_lw_sum = np.sum(sample_weight_lw)
-    assert sample_weigh_lw_sum < n_samples
-    assert n_samples_sw > n_samples - sample_weigh_lw_sum
+    if n_samp_eq_sw_sum:
 
-    # Allocate 0 or 1 weights for the first dataset, such that the sum of all
-    # weights matches the total number of samples.
-    sample_weight_sw = np.zeros(n_samples_sw, dtype=sample_weight_lw.dtype)
-    weight_one_indices = rng.choice(
-        n_samples_sw, size=n_samples - sample_weigh_lw_sum, replace=False
-    )
-    sample_weight_sw[weight_one_indices] = 1
-    assert np.sum(sample_weight_sw) + sample_weigh_lw_sum == n_samples
+        sample_weight_lw = rng.randint(low=3, high=11, size=n_samples_lw)
+        sample_weigh_lw_sum = np.sum(sample_weight_lw)
+        assert sample_weigh_lw_sum < n_samples
+        assert n_samples_sw > n_samples - sample_weigh_lw_sum
 
-    sample_weight_sw_sum = np.sum(sample_weight_sw)
-    total_weight_sum = sample_weight_sw_sum + sample_weigh_lw_sum
-    assert sample_weight_sw_sum < 0.4 * total_weight_sum, (
-        sample_weight_sw_sum,
-        total_weight_sum,
-    )
+        # Allocate 0 or 1 weights for the first dataset, such that the sum of all
+        # weights matches the total number of samples.
+        sample_weight_sw = np.zeros(n_samples_sw, dtype=sample_weight_lw.dtype)
+        weight_one_indices = rng.choice(
+            n_samples_sw, size=n_samples - sample_weigh_lw_sum, replace=False
+        )
+        sample_weight_sw[weight_one_indices] = 1
+        assert np.sum(sample_weight_sw) + sample_weigh_lw_sum == n_samples
+
+        sample_weight_sw_sum = np.sum(sample_weight_sw)
+        total_weight_sum = sample_weight_sw_sum + sample_weigh_lw_sum
+        assert sample_weight_sw_sum < 0.4 * total_weight_sum, (
+            sample_weight_sw_sum,
+            total_weight_sum,
+        )
+    else:
+        sample_weight_sw = np.where(rng.random(n_samples_sw) < 0.2, 1, 0)
+        sample_weight_lw = rng.randint(2, max_sample_weight, size=n_samples_lw)
+        total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
+        assert np.sum(sample_weight_sw) < 0.4 * total_weight_sum
 
     if not is_classifier(est):
         X_sw, y_sw = make_regression(

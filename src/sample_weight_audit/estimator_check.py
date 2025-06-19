@@ -64,6 +64,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_features=10,
     n_classes=3,
     n_stochastic_fits=300,
+    n_samp_eq_sw_sum=False,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -93,6 +94,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
             n_stochastic_fits=n_stochastic_fits,
             n_samples_per_cv_group=n_samples_per_cv_group,
             n_cv_group=n_cv_group,
+            n_samp_eq_sw_sum=n_samp_eq_sw_sum,
             random_state=random_state,
         )
     )
@@ -231,6 +233,7 @@ def multifit_over_weighted_and_repeated(
     n_features=10,
     n_classes=3,
     test_pool_size=1000,
+    n_samp_eq_sw_sum=False,
     random_state=None,
 ):
     if "cv" in est.get_params():
@@ -245,6 +248,7 @@ def multifit_over_weighted_and_repeated(
         effective_train_size + test_pool_size,
         n_features=n_features,
         n_classes=n_classes,
+        n_samp_eq_sw_sum=n_samp_eq_sw_sum,
         random_state=random_state,
     )
 
