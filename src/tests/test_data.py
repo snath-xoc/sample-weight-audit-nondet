@@ -12,7 +12,10 @@ from sample_weight_audit.data import make_data_for_estimator
 def test_make_data_for_classifier(seed):
     clf = LogisticRegression(C=1)
     X, y, sample_weight = make_data_for_estimator(
-        clf, n_samples=5000, n_features=10, random_state=seed
+        clf,
+        n_samples=5000,
+        n_features=10,
+        random_state=seed,
     )
     assert X.ndim == 2
     assert y.ndim == 1
@@ -39,7 +42,10 @@ def test_make_data_for_classifier(seed):
 def test_make_data_for_regressor(seed):
     reg = Ridge()
     X, y, sample_weight = make_data_for_estimator(
-        reg, n_samples=5000, n_features=10, random_state=seed
+        reg,
+        n_samples=5000,
+        n_features=10,
+        random_state=seed,
     )
     assert X.ndim == 2
     assert y.ndim == 1

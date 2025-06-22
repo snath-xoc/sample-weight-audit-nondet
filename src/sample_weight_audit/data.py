@@ -63,7 +63,10 @@ def make_data_for_estimator(
     # features of the first dataset to learn their prediction function.
 
     rng = check_random_state(random_state)
-    n_samples_sw = int(0.9 * n_samples)  # small weights
+    if n_samp_eq_sw_sum:
+        n_samples_sw = int(0.9 * n_samples)  # small weights
+    else:
+        n_samples_sw = int(0.8 * n_samples)  # small weights
     n_samples_lw = n_samples - n_samples_sw  # large weights
     n_features_sw = n_features // 2
     n_features_lw = n_features - n_features_sw
@@ -80,7 +83,6 @@ def make_data_for_estimator(
     # dataset, and some random integers larger than one for the second dataset.
     # Let's start with the second dataset, which has larger weights:
     if n_samp_eq_sw_sum:
-
         sample_weight_lw = rng.randint(low=3, high=11, size=n_samples_lw)
         sample_weigh_lw_sum = np.sum(sample_weight_lw)
         assert sample_weigh_lw_sum < n_samples
