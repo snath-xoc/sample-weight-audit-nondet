@@ -64,8 +64,8 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_cv_group=3,
     n_features=10,
     n_classes=3,
-    max_sample_weight=10,
     n_stochastic_fits=300,
+    n_samp_eq_sw_sum=False,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -95,7 +95,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
             n_stochastic_fits=n_stochastic_fits,
             n_samples_per_cv_group=n_samples_per_cv_group,
             n_cv_group=n_cv_group,
-            max_sample_weight=max_sample_weight,
+            n_samp_eq_sw_sum=n_samp_eq_sw_sum,
             random_state=random_state,
         )
     )
@@ -250,7 +250,7 @@ def multifit_over_weighted_and_repeated(
     n_features=10,
     n_classes=3,
     test_pool_size=1000,
-    max_sample_weight=5,
+    n_samp_eq_sw_sum=False,
     random_state=None,
 ):
     effective_train_size = n_samples_per_cv_group
@@ -264,13 +264,15 @@ def multifit_over_weighted_and_repeated(
         effective_train_size + test_pool_size,
         n_features=n_features,
         n_classes=n_classes,
-        max_sample_weight=max_sample_weight,
+        n_samp_eq_sw_sum=n_samp_eq_sw_sum,
         random_state=random_state,
     )
     tags = est.__sklearn_tags__()
     if tags.input_tags.categorical:
         # Bin numerical features to categorical ones.
-        binner = KBinsDiscretizer(n_bins=5, encode="ordinal", quantile_method="averaged_inverted_cdf")
+        binner = KBinsDiscretizer(
+            n_bins=5, encode="ordinal", quantile_method="averaged_inverted_cdf"
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             # Ignore the warning about the number of bins being too small.
