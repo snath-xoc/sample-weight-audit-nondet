@@ -35,6 +35,7 @@ class EquivalenceTestResult:
     scores_repeated: np.ndarray
     predictions_weighted: np.ndarray
     predictions_repeated: np.ndarray
+    estimators: list
 
     def __repr__(self):
         return (
@@ -46,7 +47,8 @@ class EquivalenceTestResult:
         )
 
     def to_dict(self):
-        return {
+
+        summary_dict = {
             "estimator_name": self.estimator_name,
             "test_name": self.test_name,
             "pvalue": self.pvalue,
@@ -54,6 +56,10 @@ class EquivalenceTestResult:
             "scores_repeated": self.scores_repeated,
             "deterministic_predictions": self.deterministic_predictions,
         }
+        if self.estimators is not None:
+            summary_dict["estimators_weighted"] = self.estimators[0]
+            summary_dict["estimators_repeated"] = self.estimators[1]
+        return summary_dict
 
 
 def check_weighted_repeated_estimator_fit_equivalence(
@@ -66,6 +72,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
     n_classes=3,
     n_stochastic_fits=300,
     n_samp_eq_sw_sum=False,
+    store_estimators=False,
     random_state=None,
 ):
     """Assess the correct use of weights for estimators with stochastic fits.
@@ -87,18 +94,31 @@ def check_weighted_repeated_estimator_fit_equivalence(
 
     """
 
-    scores_weighted, scores_repeated, predictions_weighted, predictions_repeated = (
-        multifit_over_weighted_and_repeated(
-            est,
-            n_features=n_features,
-            n_classes=n_classes,
-            n_stochastic_fits=n_stochastic_fits,
-            n_samples_per_cv_group=n_samples_per_cv_group,
-            n_cv_group=n_cv_group,
-            n_samp_eq_sw_sum=n_samp_eq_sw_sum,
-            random_state=random_state,
-        )
+    multifit_results = multifit_over_weighted_and_repeated(
+        est,
+        n_features=n_features,
+        n_classes=n_classes,
+        n_stochastic_fits=n_stochastic_fits,
+        n_samples_per_cv_group=n_samples_per_cv_group,
+        n_cv_group=n_cv_group,
+        n_samp_eq_sw_sum=n_samp_eq_sw_sum,
+        store_estimators=store_estimators,
+        random_state=random_state,
     )
+
+    if store_estimators:
+        (
+            scores_weighted,
+            scores_repeated,
+            predictions_weighted,
+            predictions_repeated,
+            estimators,
+        ) = multifit_results
+    else:
+        scores_weighted, scores_repeated, predictions_weighted, predictions_repeated = (
+            multifit_results
+        )
+        estimators = None
 
     assert scores_weighted.ndim == 1  # (n_stochastic_fits,)
     assert scores_weighted.shape == scores_repeated.shape
@@ -129,6 +149,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
         scores_repeated,
         predictions_weighted,
         predictions_repeated,
+        estimators=estimators,
     )
 
 
@@ -251,6 +272,7 @@ def multifit_over_weighted_and_repeated(
     n_classes=3,
     test_pool_size=1000,
     n_samp_eq_sw_sum=False,
+    store_estimators=False,
     random_state=None,
 ):
     effective_train_size = n_samples_per_cv_group
@@ -312,6 +334,10 @@ def multifit_over_weighted_and_repeated(
     predictions_weighted_all = []
     predictions_repeated_all = []
 
+    if store_estimators:
+        est_weighted_all = []
+        est_repeated_all = []
+
     if "random_state" not in signature(est.__init__).parameters:
         n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
 
@@ -355,6 +381,10 @@ def multifit_over_weighted_and_repeated(
         predictions_weighted_all.append(preds_weighted)
         predictions_repeated_all.append(preds_repeated)
 
+        if store_estimators:
+            est_weighted_all.append(est_weighted)
+            est_repeated_all.append(est_repeated)
+
     scores_weighted_all = np.stack(scores_weighted_all)
     scores_repeated_all = np.stack(scores_repeated_all)
     predictions_weighted_all = np.stack(predictions_weighted_all).reshape(
@@ -364,9 +394,22 @@ def multifit_over_weighted_and_repeated(
         n_stochastic_fits, -1
     )
 
-    return (
-        scores_weighted_all,
-        scores_repeated_all,
-        predictions_weighted_all,
-        predictions_repeated_all,
-    )
+    if store_estimators:
+
+        return (
+            scores_weighted_all,
+            scores_repeated_all,
+            predictions_weighted_all,
+            predictions_repeated_all,
+            [
+                est_weighted_all,
+                est_repeated_all,
+            ],
+        )
+    else:
+        return (
+            scores_weighted_all,
+            scores_repeated_all,
+            predictions_weighted_all,
+            predictions_repeated_all,
+        )
