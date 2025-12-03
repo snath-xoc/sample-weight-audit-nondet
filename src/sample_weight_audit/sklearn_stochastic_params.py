@@ -46,8 +46,8 @@ STOCHASTIC_FIT_PARAMS = {
             max_features=0.5, min_weight_fraction_leaf=0.1
         )
     },
-    BaggingClassifier: {"estimator": LogisticRegression()},
-    BaggingRegressor: {"estimator": Ridge()},
+    BaggingClassifier: {"estimator": LogisticRegression(), "max_samples": 1.0},
+    BaggingRegressor: {"estimator": Ridge(), "max_samples": 1.0},
     BisectingKMeans: {"n_clusters": 10},
     LinearSVR: {"dual": True},
     LinearSVC: {"dual": True},
