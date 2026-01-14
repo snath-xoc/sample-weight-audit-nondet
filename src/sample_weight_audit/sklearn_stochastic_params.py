@@ -26,6 +26,7 @@ from sklearn.ensemble import (
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
     HistGradientBoostingRegressor,
+    RandomForestClassifier,
     RandomForestRegressor,
     RandomTreesEmbedding,
 )
@@ -63,7 +64,8 @@ STOCHASTIC_FIT_PARAMS = {
     HistGradientBoostingRegressor: {"max_features": 0.5},
     HistGradientBoostingClassifier: {"max_features": 0.5},
     KMeans: {"n_clusters": 10},
-    RandomForestRegressor: {"max_features": 0.5},
+    RandomForestClassifier: {"max_features": 0.5, "max_samples": 0.8},
+    RandomForestRegressor: {"max_features": 0.5, "max_samples": 0.8},
     DummyClassifier: {"strategy": "stratified"},
     LogisticRegression: {
         "dual": True,
@@ -84,7 +86,7 @@ STOCHASTIC_FIT_PARAMS = {
         "quantile_method": "averaged_inverted_cdf",
     },
     MiniBatchKMeans: {"n_clusters": 10, "reassignment_ratio": 0.01},
-    RandomTreesEmbedding: {"n_estimators": 10},
+    RandomTreesEmbedding: {"n_estimators": 10, "max_samples": 100},
     SGDClassifier: {"max_iter": 100_000},
     SGDRegressor: {"max_iter": 100_000},
     Perceptron: {"max_iter": 100_000},
