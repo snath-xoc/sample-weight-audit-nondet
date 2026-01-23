@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.datasets import make_classification, make_regression
-from sklearn.base import is_classifier
+from sklearn.base import is_classifier, is_clusterer
 from sklearn.utils import check_random_state, shuffle
 from sklearn.utils.estimator_checks import (
     _enforce_estimator_tags_y,
@@ -109,18 +109,7 @@ def make_data_for_estimator(
         total_weight_sum = np.sum(sample_weight_sw) + np.sum(sample_weight_lw)
         assert np.sum(sample_weight_sw) < 0.4 * total_weight_sum
 
-    if not is_classifier(est):
-        X_sw, y_sw = make_regression(
-            n_samples=n_samples_sw,
-            n_features=n_features_sw,
-            random_state=rng,
-        )
-        X_lw, y_lw = make_regression(
-            n_samples=n_samples_lw,
-            n_features=n_features_lw,
-            random_state=rng,  # rng is different because mutated
-        )
-    else:
+    if is_classifier(est) or is_clusterer(est):
         X_sw, y_sw = make_classification(
             n_samples=n_samples_sw,
             n_features=n_features_sw,
@@ -137,6 +126,17 @@ def make_data_for_estimator(
             n_redundant=0,
             n_repeated=0,
             n_classes=n_classes,
+            random_state=rng,  # rng is different because mutated
+        )
+    else:
+        X_sw, y_sw = make_regression(
+            n_samples=n_samples_sw,
+            n_features=n_features_sw,
+            random_state=rng,
+        )
+        X_lw, y_lw = make_regression(
+            n_samples=n_samples_lw,
+            n_features=n_features_lw,
             random_state=rng,  # rng is different because mutated
         )
 
