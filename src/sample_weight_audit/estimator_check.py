@@ -93,7 +93,6 @@ def check_weighted_repeated_estimator_fit_equivalence(
     transformers).
 
     """
-
     multifit_results = multifit_over_weighted_and_repeated(
         est,
         n_features=n_features,
@@ -139,7 +138,7 @@ def check_weighted_repeated_estimator_fit_equivalence(
     pvalue = run_statistical_test(scores_weighted, scores_repeated, test_name).pvalue
 
     if est_name is None:
-        est_name = (est.__class__.__name__,)
+        est_name = est.__class__.__name__
     return EquivalenceTestResult(
         est_name,
         test_name,
@@ -325,12 +324,10 @@ def multifit_over_weighted_and_repeated(
         sample_weight_train,
     )
     est_ref = clone(est).set_params(**cv_params_weighted)
-    if "random_state" in signature(est.fit).parameters:
-        est_ref.set_params(random_state=0)
     est_ref = check_pipeline_and_fit(est_ref, X_train, y_train, sample_weight_train)
 
-    scores_weighted_all = []
-    scores_repeated_all = []
+    scores_weighted = []
+    scores_repeated = []
     predictions_weighted_all = []
     predictions_repeated_all = []
 
@@ -338,11 +335,11 @@ def multifit_over_weighted_and_repeated(
         est_weighted_all = []
         est_repeated_all = []
 
-    if "random_state" not in signature(est.__init__).parameters:
+    if "random_state" not in est.get_params():
         n_stochastic_fits = 1  # avoid wasting time on deterministic estimators
 
     for seed in tqdm(range(n_stochastic_fits)):
-        if "random_state" in signature(est.__init__).parameters:
+        if "random_state" in est.get_params():
             est_weighted = clone(est).set_params(
                 random_state=seed, **cv_params_weighted
             )
@@ -369,15 +366,15 @@ def multifit_over_weighted_and_repeated(
             seed=seed,
         )
 
-        scores_weighted, preds_weighted = score_estimator(
+        score_weighted, preds_weighted = score_estimator(
             est_weighted, X_test, y_test, sample_weight=sample_weight_test
         )
-        scores_repeated, preds_repeated = score_estimator(
+        score_repeated, preds_repeated = score_estimator(
             est_repeated, X_test, y_test, sample_weight=sample_weight_test
         )
 
-        scores_weighted_all.append(scores_weighted)
-        scores_repeated_all.append(scores_repeated)
+        scores_weighted.append(score_weighted)
+        scores_repeated.append(score_repeated)
         predictions_weighted_all.append(preds_weighted)
         predictions_repeated_all.append(preds_repeated)
 
@@ -385,20 +382,21 @@ def multifit_over_weighted_and_repeated(
             est_weighted_all.append(est_weighted)
             est_repeated_all.append(est_repeated)
 
-    scores_weighted_all = np.stack(scores_weighted_all)
-    scores_repeated_all = np.stack(scores_repeated_all)
-    predictions_weighted_all = np.stack(predictions_weighted_all).reshape(
-        n_stochastic_fits, -1
-    )
-    predictions_repeated_all = np.stack(predictions_repeated_all).reshape(
-        n_stochastic_fits, -1
-    )
+
+    scores_weighted = np.asarray(scores_weighted)
+    scores_repeated = np.asarray(scores_repeated)
+    predictions_weighted_all = np.stack(predictions_weighted_all)
+    predictions_repeated_all = np.stack(predictions_repeated_all)
+
+    assert predictions_weighted_all.shape == predictions_repeated_all.shape
+    assert predictions_weighted_all.ndim >= 2  # (n_stochastic_fits, n_test_samples [, n_classes])
+    assert predictions_weighted_all.shape[0] == n_stochastic_fits
+    assert predictions_repeated_all.shape[1] == X_test.shape[0]
 
     if store_estimators:
-
         return (
-            scores_weighted_all,
-            scores_repeated_all,
+            scores_weighted,
+            scores_repeated,
             predictions_weighted_all,
             predictions_repeated_all,
             [
@@ -408,8 +406,8 @@ def multifit_over_weighted_and_repeated(
         )
     else:
         return (
-            scores_weighted_all,
-            scores_repeated_all,
+            scores_weighted,
+            scores_repeated,
             predictions_weighted_all,
             predictions_repeated_all,
         )
