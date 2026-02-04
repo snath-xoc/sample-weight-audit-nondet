@@ -10,6 +10,7 @@ from sklearn.base import (
     RegressorMixin,
     clone,
 )
+from sklearn.cluster import KMeans
 from sklearn.utils.estimator_checks import (
     check_sample_weight_equivalence_on_dense_data,
 )
@@ -132,6 +133,29 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         return self._base_regressor.predict(X) + self.random_offset_
 
 
+class CustomKMeans(KMeans):
+    """A KMeans that can be configured to ignore sample weights."""
+
+    def __init__(self, n_clusters=10, ignore_sample_weight=False, random_state=None):
+        super().__init__(
+            n_clusters=n_clusters,
+            random_state=random_state,
+        )
+        self.ignore_sample_weight = ignore_sample_weight
+
+    def fit(self, X, y=None, sample_weight=None):
+        if self.ignore_sample_weight:
+            sample_weight = None
+
+        return super().fit(X, y, sample_weight=sample_weight)
+
+    def fit_predict(self, X, y=None, sample_weight=None):
+        if self.ignore_sample_weight:
+            sample_weight = None
+
+        return super().fit_predict(X, y, sample_weight=sample_weight)
+
+
 @pytest.mark.parametrize(
     "test_name",
     [
@@ -145,11 +169,17 @@ class NoisyRegressor(RegressorMixin, BaseEstimator):
         NoisyClassifier(random_state=0),
         NoisyRegressor(random_state=0),
         NoisyTransformer(random_state=0),
+        CustomKMeans(n_clusters=10, random_state=0),
     ],
-    ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
+    ids=[
+        "noisy_classifier",
+        "noisy_regressor",
+        "noisy_transformer",
+        "custom_kmeans",
+    ],
 )
 def test_equivalence_on_noisy_estimator(est, test_name):
-    good_est = clone(est)
+    good_est = clone(est).set_params(ignore_sample_weight=False)
     good_est_result = check_weighted_repeated_estimator_fit_equivalence(
         good_est, test_name=test_name, random_state=0
     )
@@ -171,7 +201,7 @@ def test_equivalence_on_noisy_estimator(est, test_name):
     ],
     ids=["noisy_classifier", "noisy_regressor", "noisy_transformer"],
 )
-def test_equivalence_on_determinitic_estimator(est):
+def test_equivalence_on_deterministic_estimator(est):
     est_name = est.__class__.__name__
     check_sample_weight_equivalence_on_dense_data(est_name, est)
 
