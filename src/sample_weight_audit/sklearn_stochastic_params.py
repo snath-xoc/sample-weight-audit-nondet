@@ -61,8 +61,16 @@ STOCHASTIC_FIT_PARAMS = {
     DecisionTreeRegressor: {"max_features": 0.5},
     GradientBoostingClassifier: {"max_features": 0.5},
     GradientBoostingRegressor: {"max_features": 0.5},
-    HistGradientBoostingRegressor: {"max_features": 0.5, "max_iter": 10},
-    HistGradientBoostingClassifier: {"max_features": 0.5, "max_iter": 10},
+    HistGradientBoostingRegressor: {
+        "max_features": 0.5,
+        "max_iter": 10,
+        "min_samples_leaf": 1,
+    },
+    HistGradientBoostingClassifier: {
+        "max_features": 0.5,
+        "max_iter": 10,
+        "min_samples_leaf": 1,
+    },
     KMeans: {"n_clusters": 10},
     RandomForestClassifier: {"max_features": 0.5, "max_samples": 0.8},
     RandomForestRegressor: {"max_features": 0.5, "max_samples": 0.8},
